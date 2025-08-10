@@ -1,14 +1,83 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import AppNavigator from './navigation/AppNavigator';
 import { AuthProvider } from './context/AuthContext';
-import { Provider as PaperProvider } from 'react-native-paper'; // ✅ Add this
+import { Provider as PaperProvider } from 'react-native-paper';
+import * as Notifications from "expo-notifications";
+import { registerBackgroundTask } from './composable/registerBackgroundTask';
+import { createNavigationContainerRef } from '@react-navigation/native';
+import { UseMethod } from './composable/useMethod';
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 export default function App() {
+  const navigationRef = createNavigationContainerRef();
+ useEffect(() => {
+  let intervalId;
+
+  (async () => {
+    await Notifications.requestPermissionsAsync();
+    await registerBackgroundTask();
+
+    // 🔄 Foreground polling every 30 seconds
+    intervalId = setInterval(async () => {
+      try {
+        const res = await UseMethod('get', 'notifications/new');
+        if (res?.data?.data?.length > 0) {
+          for (const notif of res.data.data) {
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                   title: `UCCP EVENTS - ${notif.title || 'New Notification'}`,
+                body: notif.body || 'You have a new update!',
+                sound: 'default',
+                data: { eventId: notif.event_id },
+              },
+              trigger: null,
+            });
+            console.log(`📨 Foreground notification sent: ${notif.title || notif.body}`);
+          }
+        }
+      } catch (err) {
+        console.error("🚨 Error fetching foreground notifications:", err);
+      }
+    }, 30000); // 30 seconds
+  })();
+
+  // ✅ Listen for when a user taps the notification
+  const subscription = Notifications.addNotificationResponseReceivedListener(async (response) => {
+    const notifData = response.notification.request.content.data;
+    console.log("📬 Notification tapped:", notifData);
+
+    if (notifData?.eventId) {
+      try {
+        const res = await UseMethod('get', `get-event/${notifData?.eventId}`);
+        const event = res.data;
+
+        console.log("📦 Event data fetched:", event);
+
+        navigationRef.current?.navigate('EventDetails', { event, mode: 'register' });
+      } catch (error) {
+        console.error("🚨 Error fetching event data:", error);
+      }
+    }
+  });
+
+  return () => {
+    if (intervalId) clearInterval(intervalId); // ⏹ stop polling when unmounts
+    subscription.remove();
+  };
+}, []);
+
+
   return (
-    <PaperProvider> {/* ✅ Wrap with react-native-paper Provider */}
+    <PaperProvider>
       <AuthProvider>
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
           <AppNavigator />
         </NavigationContainer>
       </AuthProvider>

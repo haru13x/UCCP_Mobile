@@ -13,56 +13,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const GOOGLE_MAPS_APIKEY = 'AIzaSyA-Psh9ZzR9Qp7tiJcH5RTqhFrr9nYZRdQ';
 
-const events = [
-    {
-        id: 1,
-        title: 'Cebu Tech Summit',
-        description: 'Annual gathering of developers and tech leaders in Cebu.',
-        address: 'Cebu IT Park, Lahug, Cebu City',
-        latitude: 10.3157,
-        longitude: 123.8854,
-        jeepneyRoutes: ['04L', '17B', '12L']
-    },
-    {
-        id: 2,
-        title: 'Sinulog Festival',
-        description: 'Cultural and religious festival held every January.',
-        address: 'Osmeña Blvd, Cebu City',
-        latitude: 10.3064,
-        longitude: 123.8885,
-
-    },
-    {
-        id: 3,
-        title: 'IT Expo Manila',
-        description: 'The largest IT exposition in the Philippines.',
-        address: 'SMX Convention Center, Pasay City, Manila',
-        latitude: 14.5495,
-        longitude: 120.9817,
-        jeepneyRoutes: ['Pasay Rotonda', 'Mall of Asia Loop']
-    },
-    {
-        id: 4,
-        title: 'Davao DevCon',
-        description: 'A developer conference in the heart of Davao.',
-        address: 'Abreeza Mall, Davao City',
-        latitude: 7.0907,
-        longitude: 125.6131,
-
-    },
-    {
-        id: 5,
-        title: 'TEST2555',
-        description: 'A developer conference in the heart of Cebu.',
-        address: 'Osmeña Blvd, Cebu City, 6000 Cebu, Philippines',
-        latitude: 10.3144559,
-        longitude: 123.8920288,
-
-    },
-];
 export default function EventMapScreen({route, navigation}) {
     const { event } = route.params || {};
-    // const [events, setEvents] = useState(event ? [event] : []);
+    const [events, setEvents] = useState(event ? [event] : []);
     const [location, setLocation] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [filteredEvents, setFilteredEvents] = useState(events);
