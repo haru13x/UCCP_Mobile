@@ -22,7 +22,7 @@ export const UseMethod = async (
       headers["Content-Type"] = "application/json";
     }
 
-    const api = `${API_URL}/api/${url}`;
+    const api = `http://10.249.125.115:8000/api/${url}`;
 
     let response;
 
