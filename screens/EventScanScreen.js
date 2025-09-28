@@ -54,26 +54,42 @@ const EventScanScreen = () => {
       const response = await UseMethod('post', 'scan-event', {
         barcode: data,
       });
-
+      console.log(response?.data);
       const result = response?.data;
 
       if (result && Object.keys(result).length > 0 && result?.type != 2) {
-        navigation.navigate("EventDetails", { event: result, mode });
-       
+        // Success - attendance marked
+        Alert.alert(
+          "Success", 
+          result?.message || "Attendance marked successfully!",
+          [
+            {
+              text: "View Event",
+              onPress: () => navigation.navigate("EventDetails", { event: result?.event, mode })
+            },
+            {
+              text: "Continue Scanning",
+              style: "cancel"
+            }
+          ]
+        );
       } else {
-        Alert.alert(response?.data?.message || "No event found for this barcode.");
+        // Error - show specific message
+        const errorMessage = response?.data?.message || "No event found for this barcode.";
+        Alert.alert("Cannot Mark Attendance", errorMessage);
       }
     } catch (error) {
       if (error.response && error.response.status === 403) {
         Alert.alert(
           "Access Denied",
-          error.response.data.message || "This event is not intended for your account type."
+          error.response.data.message || "You don't have permission to mark attendance for this event."
         );
       } else if (error.response && error.response.status === 404) {
-        Alert.alert("Not Found", "No event found for this barcode.");
+        Alert.alert("Event Not Found", "No event found for this barcode.");
+      } else if (error.response && error.response.data?.message) {
+        Alert.alert("Attendance Error", error.response.data.message);
       } else {
-        Alert.alert("Error", "Failed to connect to the server."+error.response.status );
-       
+        Alert.alert("Connection Error", "Failed to connect to the server. Please try again.");
       }
     } finally {
       setLoading(false);

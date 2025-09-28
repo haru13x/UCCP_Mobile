@@ -1,8 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, ImageBackground,
-  TouchableOpacity, ActivityIndicator, TextInput, Image,
-  Alert, RefreshControl
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  TextInput,
+  RefreshControl,
+  ImageBackground,
+  Image,
+  Dimensions,
+  Animated,
 } from 'react-native';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,7 +20,9 @@ import { Picker } from '@react-native-picker/picker';
 import RNPickerSelect from 'react-native-picker-select';
 import { UseMethod } from '../composable/useMethod';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
 const formatRange = (startDate, startTime, endDate, endTime) => {
   const sd = new Date(`${startDate}T${startTime}`);
   const ed = new Date(`${endDate}T${endTime}`);
@@ -34,34 +45,37 @@ export default function MyEventScreen({ navigation }) {
   };
 
   const fetchEvents = async () => {
-
+    console.log('Fetching events with filter:', filter, 'and search:', searchQuery);
     setLoading(true);
     try {
-
       const res = await UseMethod(
         'get',
         `my-events-list/${filter}`,
-        { search: searchQuery });
-      setEvents(res.data);
-
+        null,
+        searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''
+      );
+      console.log('API Response:', res);
+      if (res && res.data) {
+        setEvents(res.data);
+        console.log('Events set:', res.data.length, 'events');
+      } else {
+        setEvents([]);
+        console.log('No events data received');
+      }
     } catch (e) {
-      console.error(e);
-
+      console.error('Error fetching events:', e);
+      setEvents([]);
     } finally {
       setLoading(false);
-
     }
   };
-    useFocusEffect(
-      useCallback(() => {
-        fetchEvents();
-      }, [filter, searchQuery])
-    );
-  
 
-  useEffect(() => {
-    fetchEvents();
-  }, [filter]);
+  // Use only useFocusEffect to handle both filter and search changes
+  useFocusEffect(
+    useCallback(() => {
+      fetchEvents();
+    }, [filter, searchQuery])
+  );
 
   const handleSearch = () => {
     fetchEvents();
@@ -78,242 +92,402 @@ export default function MyEventScreen({ navigation }) {
   );
 
   return (
-    <ScrollView refreshControl={
-      <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-    } style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.rowContainer}>
-          <View style={styles.searchContainer}>
-            <Ionicons name="search-outline" size={18} color="#888" style={{ marginRight: 6 }} />
-            <TextInput
-              placeholder="Search events..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onSubmitEditing={handleSearch}
-              style={styles.searchInput}
-              returnKeyType="search"
-            />
-          </View>
+    <View style={styles.container}>
+    
 
-          <View style={styles.dropdownContainer}>
-            <RNPickerSelect
-              onValueChange={(value) => setFilter(value)}
-              value={filter}
-              placeholder={{ label: 'Filter...', value: null }}
-              items={[
-                { label: 'Upcoming', value: 'upcoming' },
-                { label: 'Today', value: 'today' },
-                { label: 'Past', value: 'past' },
-              ]}
-              style={pickerSelectStyles}
-              useNativeAndroidPickerStyle={false}
-            />
-          </View>
+      {/* Filter Tabs */}
+      <View style={styles.filterContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterTabs}>
+          {[
+            { label: 'Upcoming', value: 'upcoming', icon: 'calendar-outline' },
+            { label: 'Today', value: 'today', icon: 'today-outline' },
+            { label: 'Past', value: 'past', icon: 'time-outline' },
+          ].map((item) => (
+            <TouchableOpacity
+              key={item.value}
+              style={[styles.filterTab, filter === item.value && styles.filterTabActive]}
+              onPress={() => {
+                console.log('Filter button pressed:', item.value);
+                setFilter(item.value);
+              }}
+            >
+              <Ionicons 
+                name={item.icon} 
+                size={16} 
+                color={filter === item.value ? '#fff' : '#667eea'} 
+                style={styles.filterIcon}
+              />
+              <Text style={[styles.filterText, filter === item.value && styles.filterTextActive]}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          
+        </ScrollView>
+        <View style={styles.searchContainer}>
+          <Ionicons name="search-outline" size={20} color="#667eea" style={styles.searchIcon} />
+          <TextInput
+            placeholder="Search your events..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
+            style={styles.searchInput}
+            returnKeyType="search"
+            placeholderTextColor="#9ca3af"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color="#9ca3af" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
+      {/* Search Bar */}
+      
+
+      <ScrollView 
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#667eea']} />
+        } 
+        style={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
 
 
-      {/* Body */}
-      {loading ? (
-        <ActivityIndicator style={{ flex: 1 }} size="large" color="#1e40af" />
-      ) : events.length === 0 ? (
-        <View style={styles.nodatacontainer}>
-          <Image
-            source={require('../assets/no_mydata.png')} // 🔁 replace with your actual image path
-            style={styles.image}
-            resizeMode="contain"
-          />
-          <Text style={styles.noData}>No events founds</Text>
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={styles.cardList}>
-          {events.map(event => {
-            const img = event.image
-              ? `${API_URL}/storage/${event.image}`
-              : null;
-            return (
-              <TouchableOpacity
-                key={event.id}
-                style={styles.card}
-                activeOpacity={0.9}
-                onPress={() => navigation.navigate('EventDetails', { event, mode: 'register' })}
-              >
-                {img && (
-                  <ImageBackground source={{ uri: img }} style={styles.cardImage} resizeMode="cover">
-                    <View style={styles.cardOverlay}>
-                      <Text style={styles.cardTitle} numberOfLines={2}>{event.title}</Text>
+
+        {/* Content */}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#667eea" />
+            <Text style={styles.loadingText}>Loading your events...</Text>
+          </View>
+        ) : events.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <LinearGradient
+              colors={['#f8fafc', '#e2e8f0']}
+              style={styles.emptyCard}
+            >
+              <Ionicons name="calendar-outline" size={64} color="#cbd5e1" />
+              <Text style={styles.emptyTitle}>No Events Found</Text>
+              <Text style={styles.emptySubtitle}>
+                {filter === 'upcoming' ? 'No upcoming events at the moment' :
+                 filter === 'today' ? 'No events scheduled for today' :
+                 'No past events to display'}
+              </Text>
+            </LinearGradient>
+          </View>
+        ) : (
+          <View style={styles.cardList}>
+            {events.map((event, index) => {
+              const img = event.image
+                ? `${API_URL}/storage/${event.image}`
+                : null;
+              return (
+                <TouchableOpacity
+                  key={event.id}
+                  style={[styles.card, { marginTop: index === 0 ? 0 : 16 }]}
+                  activeOpacity={0.95}
+                  onPress={() => navigation.navigate('EventDetails', { event, mode: 'register' })}
+                >
+                  <View style={styles.cardShadow}>
+                    {img ? (
+                      <ImageBackground source={{ uri: img }} style={styles.cardImage} resizeMode="cover">
+                        <LinearGradient
+                          colors={['transparent', 'rgba(0,0,0,0.8)']}
+                          style={styles.cardGradientOverlay}
+                        >
+                          <Text style={styles.cardTitle} numberOfLines={2}>{event.title}</Text>
+                        </LinearGradient>
+                      </ImageBackground>
+                    ) : (
+                      <LinearGradient
+                        colors={['#667eea', '#764ba2']}
+                        style={styles.cardImagePlaceholder}
+                      >
+                        <Ionicons name="calendar" size={32} color="#fff" />
+                        <Text style={styles.cardTitle} numberOfLines={2}>{event.title}</Text>
+                      </LinearGradient>
+                    )}
+                    
+                    <View style={styles.cardContent}>
+                      <View style={styles.cardInfo}>
+                        <View style={styles.cardInfoRow}>
+                          <Ionicons name="time-outline" size={16} color="#667eea" />
+                          <Text style={styles.cardDate}>
+                            {formatRange(event.start_date, event.start_time, event.end_date, event.end_time)}
+                          </Text>
+                        </View>
+                        
+                        <View style={styles.cardInfoRow}>
+                          <Ionicons name="location-outline" size={16} color="#667eea" />
+                          <Text style={styles.cardVenue} numberOfLines={1}>
+                            {event.location_data && event.location_data.length > 0
+                              ? event.location_data.map(loc => loc.church_location?.name).filter(Boolean).join(', ') || event.venue || 'N/A'
+                              : event.venue || 'N/A'}
+                          </Text>
+                        </View>
+                      </View>
+                      
+                      <View style={styles.cardAction}>
+                        <Ionicons name="chevron-forward" size={20} color="#667eea" />
+                      </View>
                     </View>
-                  </ImageBackground>
-                )}
-                <View style={styles.cardContent}>
-                  <Text style={styles.cardDate}>{formatRange(event.start_date, event.start_time, event.end_date, event.end_time)}</Text>
-                  <Text style={styles.cardVenue}>📍 {event.venue || 'N/A'}</Text>
-
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      )}
-    </ScrollView>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f1f5f9' },
-  nodatacontainer: {
-    alignItems: 'center',
-    marginTop: 50,
-    marginBottom: 50,
-  },
-  header: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    elevation: 3,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-  },
-
-  rowContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10, // for spacing between search and filter (if supported)
-  },
-
-  searchContainer: {
-    flex: 4, // 80% width
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    paddingHorizontal: 2,
-
-  },
-
-  searchInput: {
+  container: {
     flex: 1,
-    fontSize: 14,
-    color: '#333',
+    backgroundColor: '#f8fafc',
   },
-
-  dropdownContainer: {
-    flex: 2, // 20% width
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 1,
-    justifyContent: 'center',
+  
+  gradientHeader: {
+    paddingTop: 50,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
   },
-
-
-  image: {
-   
-    width: '100%',       // full width of the container
-    height: 300,         // or adjust as needed
-    borderRadius: 8,     // optional for rounded corners
+  
+  headerContent: {
+    alignItems: 'center',
   },
-
-
-
-  tabs: {
+  
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  
+  headerSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+  },
+  
+  filterContainer: {
+    backgroundColor: '#fff',
+    paddingVertical: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  
+  filterTabs: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  
+  filterTab: {
     flexDirection: 'row',
-    justifyContent: 'right',
-  },
-
-  tab: {
+    alignItems: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: '#e2e8f0',
+    paddingHorizontal: 10,
+    borderRadius: 18,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    height: 32,
+  },
+  
+  filterTabActive: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea',
+  },
+  
+  filterIcon: {
     marginRight: 6,
   },
-
-  tabActive: {
-    backgroundColor: '#1e40af',
-  },
-
-  tabText: {
-    color: '#1e40af',
+  
+  filterText: {
+    fontSize: 11,
     fontWeight: '600',
-    fontSize: 13,
+    color: '#667eea',
+    marginLeft: 5,
+    lineHeight: 14,
   },
-
-  tabTextActive: {
+  
+  filterTextActive: {
     color: '#fff',
   },
-
-  cardList: {
-    padding: 15,
-  },
-
-  card: {
+  
+  searchSection: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 12,
-    overflow: 'hidden',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-
+  
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderRadius:2,
+    paddingHorizontal: 10,
+    marginVertical: 8,
+    borderColor: '#e2e8f0',
+    height: 36,
+  },
+  
+  searchIcon: {
+    marginRight: 10,
+  },
+  
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#374151',
+    height: 24,
+    paddingVertical: 0,
+  },
+  
+  scrollContainer: {
+    flex: 1,
+  },
+  
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 30,
+  },
+  
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#667eea',
+    fontWeight: '500',
+  },
+  
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 30,
+  },
+  
+  emptyCard: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    width: '100%',
+  },
+  
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#374151',
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  
+  cardList: {
+    padding: 16,
+  },
+  
+  card: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  
+  cardShadow: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+  },
+  
   cardImage: {
-    height: 120,
+    height: 100,
     justifyContent: 'flex-end',
   },
-
-  cardOverlay: {
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    padding: 8,
+  
+  cardImagePlaceholder: {
+    height: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-
+  
+  cardGradientOverlay: {
+    padding: 10,
+    justifyContent: 'flex-end',
+    minHeight: 50,
+  },
+  
   cardTitle: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
+    lineHeight: 16,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-
+  
   cardContent: {
     padding: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-
+  
+  cardInfo: {
+    flex: 1,
+  },
+  
+  cardInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  
   cardDate: {
+    fontSize: 11,
     color: '#374151',
-    fontSize: 13,
-    marginBottom: 3,
+    fontWeight: '500',
+    marginLeft: 5,
+    flex: 1,
+    lineHeight: 14,
   },
-
+  
   cardVenue: {
-    color: '#4b5563',
-    fontSize: 12,
-  },
-
-  cardOrganizer: {
+    fontSize: 11,
     color: '#6b7280',
-    fontSize: 12,
-    marginTop: 3,
+    marginLeft: 5,
+    flex: 1,
+    lineHeight: 14,
   },
-
-  noData: {
-    textAlign: 'center',
-
-    fontSize: 20,
-    color: '#777',
+  
+  cardAction: {
+    padding: 8,
   },
 });
-const pickerSelectStyles = {
-  inputIOS: {
-    fontSize: 16,
-    paddingVertical: 8,
-    color: '#333',
-  },
-  inputAndroid: {
-    fontSize: 16,
-    paddingVertical: 8,
-    color: '#333',
-  },
-  placeholder: {
-    color: '#999',
-  },
-};
 
