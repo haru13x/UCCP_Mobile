@@ -22,7 +22,7 @@ export const UseMethod = async (
       headers["Content-Type"] = "application/json";
     }
 
-    const api = `http://10.249.125.115:8000/api/${url}`;
+    const api = `http://172.21.192.115:8000/api/${url}`;
 
     let response;
 
@@ -51,6 +51,8 @@ export const UseMethod = async (
     return response;
   } catch (error) {
     console.error(`Error with ${method.toUpperCase()} request to ${url}:`, error.response?.data ?? error);
-    return null;
+    // Return the error response if it exists (for proper error handling)
+    // Otherwise return null for network/connection errors
+    return error.response || null;
   }
 };

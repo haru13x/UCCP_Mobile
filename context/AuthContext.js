@@ -28,10 +28,16 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     setUser(null);
     await AsyncStorage.removeItem('user');
+    await AsyncStorage.removeItem('api_token');
+  };
+
+  const updateUser = async (updatedUserData) => {
+    setUser(updatedUserData);
+    await AsyncStorage.setItem('user', JSON.stringify(updatedUserData));
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

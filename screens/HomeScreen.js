@@ -8,8 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '@env';
-import { Picker } from '@react-native-picker/picker';
-import RNPickerSelect from 'react-native-picker-select';
+
 import { UseMethod } from '../composable/useMethod';
 const formatRange = (startDate, startTime, endDate, endTime) => {
   const sd = new Date(`${startDate}T${startTime}`);
@@ -40,7 +39,8 @@ export default function HomeScreen({ navigation }) {
       const res = await UseMethod(
         'post',
         `events-list/${filter}`,
-        { search: searchQuery }
+        null,
+        searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''
       );
       setEvents(res?.data);
     } catch (e) {
@@ -52,16 +52,8 @@ export default function HomeScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       fetchEvents();
-
     }, [filter, searchQuery])
   );
-
-  useEffect(() => {
-    fetchEvents();
-  }, [filter]);
-  useEffect(() => {
-    fetchEvents();
-  }, [navigation]);
   const handleSearch = () => {
     fetchEvents();
   };
@@ -80,35 +72,46 @@ export default function HomeScreen({ navigation }) {
     <ScrollView refreshControl={
       <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
     } style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.rowContainer}>
-          <View style={styles.searchContainer}>
-            <Ionicons name="search-outline" size={18} color="#888" style={{ marginRight: 6 }} />
-            <TextInput
-              placeholder="Search events..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onSubmitEditing={handleSearch}
-              style={styles.searchInput}
-              returnKeyType="search"
-            />
-          </View>
-
-          <View style={styles.dropdownContainer}>
-            <RNPickerSelect
-              onValueChange={(value) => setFilter(value)}
-              value={filter}
-              placeholder={{ label: 'Filter...', value: null }}
-              items={[
-                { label: 'Upcoming', value: 'upcoming' },
-                { label: 'Today', value: 'today' },
-                { label: 'Past', value: 'past' },
-              ]}
-              style={pickerSelectStyles}
-              useNativeAndroidPickerStyle={false}
-            />
-          </View>
+      {/* Filter Tabs */}
+      <View style={styles.filterContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterTabs}>
+          {[
+            { label: 'Upcoming', value: 'upcoming', icon: 'calendar-outline' },
+            { label: 'Today', value: 'today', icon: 'today-outline' },
+          ].map((item) => (
+            <TouchableOpacity
+              key={item.value}
+              style={[styles.filterTab, filter === item.value && styles.filterTabActive]}
+              onPress={() => setFilter(item.value)}
+            >
+              <Ionicons 
+                name={item.icon} 
+                size={16} 
+                color={filter === item.value ? '#fff' : '#667eea'} 
+                style={styles.filterIcon}
+              />
+              <Text style={[styles.filterText, filter === item.value && styles.filterTextActive]}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <View style={styles.searchContainer}>
+          <Ionicons name="search-outline" size={20} color="#667eea" style={styles.searchIcon} />
+          <TextInput
+            placeholder="Search events..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
+            style={styles.searchInput}
+            returnKeyType="search"
+            placeholderTextColor="#9ca3af"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color="#9ca3af" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -166,45 +169,82 @@ const styles = StyleSheet.create({
     alignItems: 'center',
 
   },
-  header: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    elevation: 3,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-  },
 
-  rowContainer: {
+
+  filterContainer: {
+    backgroundColor: '#fff',
+    paddingVertical: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  
+  filterTabs: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  
+  filterTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10, // for spacing between search and filter (if supported)
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 18,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    height: 32,
+  },
+  
+  filterTabActive: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea',
+  },
+  
+  filterIcon: {
+    marginRight: 6,
+  },
+  
+  filterText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#667eea',
+    marginLeft: 5,
+    lineHeight: 14,
+  },
+  
+  filterTextActive: {
+    color: '#fff',
   },
 
   searchContainer: {
-    flex: 4, // 80% width
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    paddingHorizontal: 2,
-
+    backgroundColor: '#f8fafc',
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderRadius: 2,
+    paddingHorizontal: 10,
+    marginVertical: 8,
+    borderColor: '#e2e8f0',
+    height: 36,
+  },
+  
+  searchIcon: {
+    marginRight: 10,
   },
 
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: '#333',
+    fontSize: 13,
+    color: '#374151',
+    height: 24,
+    paddingVertical: 0,
   },
 
-  dropdownContainer: {
-    flex: 2, // 20% width
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 1,
-    justifyContent: 'center',
-  },
+
 
 
   image: {
@@ -298,19 +338,4 @@ const styles = StyleSheet.create({
     color: '#777',
   },
 });
-const pickerSelectStyles = {
-  inputIOS: {
-    fontSize: 16,
-    paddingVertical: 8,
-    color: '#333',
-  },
-  inputAndroid: {
-    fontSize: 16,
-    paddingVertical: 8,
-    color: '#333',
-  },
-  placeholder: {
-    color: '#999',
-  },
-};
 
