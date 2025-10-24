@@ -6,29 +6,51 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [permissions, setPermissions] = useState([]);
+  const [apiToken, setApiToken] = useState(null);
 
-  // Load user on startup
+  // Load user, token, and permissions on startup
   useEffect(() => {
-    const loadUser = async () => {
+    const loadAuth = async () => {
       const storedUser = await AsyncStorage.getItem('user');
+      const storedPerms = await AsyncStorage.getItem('permissions');
+      const storedToken = await AsyncStorage.getItem('api_token');
+
       if (storedUser) {
         setUser(JSON.parse(storedUser));
       }
+      if (storedPerms) {
+        try {
+          setPermissions(JSON.parse(storedPerms));
+        } catch (_) {
+          setPermissions([]);
+        }
+      }
+      if (storedToken) {
+        setApiToken(storedToken);
+      }
     };
-    loadUser();
+    loadAuth();
   }, []);
 
-  const login = async (userData,api_token) => {
+  const login = async (userData, api_token, perms = []) => {
     setUser(userData);
-     await AsyncStorage.setItem('api_token', api_token);    
-      await AsyncStorage.setItem('user', JSON.stringify(userData));
-     
+    setPermissions(perms);
+    setApiToken(api_token);
+
+    await AsyncStorage.setItem('api_token', api_token);
+    await AsyncStorage.setItem('user', JSON.stringify(userData));
+    await AsyncStorage.setItem('permissions', JSON.stringify(perms));
   };
 
   const logout = async () => {
     setUser(null);
+    setPermissions([]);
+    setApiToken(null);
+
     await AsyncStorage.removeItem('user');
     await AsyncStorage.removeItem('api_token');
+    await AsyncStorage.removeItem('permissions');
   };
 
   const updateUser = async (updatedUserData) => {
@@ -37,7 +59,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, apiToken, permissions, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -52,11 +52,11 @@ const MyCalendarScreen = () => {
   return (
     <ScrollView style={styles.container}>
       {/* Toggle Calendar */}
-      <TouchableOpacity onPress={() => setShowCalendar(!showCalendar)} style={styles.toggleBtn}>
+      {/* <TouchableOpacity onPress={() => setShowCalendar(!showCalendar)} style={styles.toggleBtn}>
         <Text style={styles.toggleText}>
           {showCalendar ? 'Hide Calendar ▲' : 'Show Calendar ▼'}
         </Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
 
       {/* Calendar */}
       {showCalendar && (
@@ -136,6 +136,7 @@ export default MyCalendarScreen;
 
 const styles = StyleSheet.create({
   container: {
+    padding:10,
     flex: 1,
     paddingHorizontal: 16,
     backgroundColor: '#f9fafb',

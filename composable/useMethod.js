@@ -18,11 +18,18 @@ export const UseMethod = async (
       Authorization: `Bearer ${authToken}`,
     };
 
+    // Omit auth header for public auth endpoints
+    const isAuthEndpoint = /^(login|register|forgot-password)/i.test(url) || /\/auth\//i.test(url);
+    if (isAuthEndpoint) {
+      delete headers.Authorization;
+    }
+
     if (!isMultipart) {
       headers["Content-Type"] = "application/json";
     }
 
-    const api = `http://172.21.192.115:8000/api/${url}`;
+    const apiBase = (API_URL || 'http://localhost:8000').trim().replace(/\/+$/, '');
+    const api = `${apiBase}/api/${url}`;
 
     let response;
 
@@ -32,7 +39,6 @@ export const UseMethod = async (
         break;
 
       case "post":
-        
         response = await axios.post(api, payload, { headers, responseType });
         break;
 
@@ -51,8 +57,6 @@ export const UseMethod = async (
     return response;
   } catch (error) {
     console.error(`Error with ${method.toUpperCase()} request to ${url}:`, error.response?.data ?? error);
-    // Return the error response if it exists (for proper error handling)
-    // Otherwise return null for network/connection errors
     return error.response || null;
   }
 };
