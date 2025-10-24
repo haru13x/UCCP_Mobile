@@ -42,7 +42,8 @@ export default function HomeScreen({ navigation }) {
         null,
         searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''
       );
-      setEvents(res?.data);
+      const data = res?.data;
+      setEvents(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -131,7 +132,7 @@ export default function HomeScreen({ navigation }) {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.cardList}>
-          {events?.map(event => {
+          {(events || []).map(event => {
             const img = event.image
               ? `${API_URL}/storage/${event.image}`
               : null;

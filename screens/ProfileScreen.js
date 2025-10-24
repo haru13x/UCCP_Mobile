@@ -140,7 +140,7 @@ export default function ProfileScreen({ navigation }) {
         updateData.confirm_password = editForm.confirm_password;
       }
 
-      const response = await UseMethod('put', 'profile', updateData);
+      const response = await UseMethod('post', 'profile?_method=PUT', updateData);
 
       if (response && response.data) {
         Alert.alert('Success', 'Profile updated successfully!');

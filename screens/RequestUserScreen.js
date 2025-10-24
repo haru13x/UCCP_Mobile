@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import {
-    View, Text, TextInput, TouchableOpacity, StyleSheet,
-    ImageBackground, ScrollView, Alert, KeyboardAvoidingView, Platform,
-    Dimensions
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ImageBackground, ScrollView, Alert, KeyboardAvoidingView, Platform,
+    Dimensions, Modal
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
@@ -22,6 +20,12 @@ export default function RegisterRequestScreen({ navigation }) {
         church_location: '',
     });
 
+    // OTP state
+    const [otpSent, setOtpSent] = useState(false);
+    const [otp, setOtp] = useState('');
+    const [otpLoading, setOtpLoading] = useState(false);
+    const [otpError, setOtpError] = useState('');
+    const [otpModalVisible, setOtpModalVisible] = useState(false);
 
     const [accountGroups, setAccountGroups] = useState([]);
     const [accountTypes, setAccountTypes] = useState([]);
@@ -79,7 +83,7 @@ export default function RegisterRequestScreen({ navigation }) {
         } else if (currentStep === 3) {
             if (!form.church_location) errs.church_location = "Church location is required";
             if (!form.account_group_id) errs.account_group_id = "Account group is required";
-            if (form.account_type_id.length === 0) errs.account_type_id = "At least one account type is required";
+            // Account type validation removed per request
         }
         
         setErrors(errs);
@@ -126,7 +130,7 @@ export default function RegisterRequestScreen({ navigation }) {
         required.forEach(field => {
             if (!form[field]) errs[field] = `${field.replace('_', ' ')} is required`;
         });
-        if (form.account_type_id.length === 0) errs.account_type_id = "At least one account type is required";
+        // Account type validation removed per request
         if (form.password !== form.confirm_password) errs.confirm_password = "Passwords do not match";
         setErrors(errs);
         return Object.keys(errs).length === 0;
@@ -136,28 +140,62 @@ export default function RegisterRequestScreen({ navigation }) {
     const handleSubmit = async () => {
         if (!validate()) return;
         try {
-            const { gender, church_location, ...formData } = form;
-            const res = await UseMethod('post', 'register', {
-                ...formData,
-                sex_id: gender,
-                location: church_location,
-                is_request: 1,
-                account_type_id: form.account_type_id,
-                account_group_id: form.account_group_id
-            });
-            console.log(res)
+            setOtpLoading(true);
+            setOtpError('');
 
-            Alert.alert("Success", "Your request has been submitted!");
-            setForm({
-                first_name: '', last_name: '', middle_name: '', birthdate: '', gender: '',
-                phone: '', email: '', username: '', password: '', confirm_password: '', account_group_id: '', 
-                account_type_id: [], church_location: ''
-            });
-            setCurrentStep(1);
+            if (!otpSent) {
+                // Step 1: Request registration OTP (mirror web payload)
+                const payload = {
+                    email: form.email,
+                    registration_data: {
+                        is_request: 1,
+                        username: form.username,
+                        email: form.email,
+                        password: form.password,
+                        password_confirmation: form.confirm_password,
+                        first_name: form.first_name,
+                        last_name: form.last_name,
+                        middle_name: form.middle_name,
+                        gender: form.gender,
+                        location: form.church_location,
+                        group_id: form.account_group_id,
+                    }
+                };
+
+                const res = await UseMethod('post', 'generate-registration-otp', payload);
+                if (res && res.status === 200) {
+                    Alert.alert('OTP Sent', 'An OTP was sent to your email. Please enter it to verify.');
+                    setOtpSent(true);
+                    setOtpModalVisible(true);
+                } else {
+                    Alert.alert('Error', res?.data?.message || 'Failed to send OTP. Please try again.');
+                }
+            } else {
+                // Step 2: Verify OTP to complete registration
+                const verifyPayload = { email: form.email, otp };
+                const res = await UseMethod('post', 'verify-registration-otp', verifyPayload);
+                if (res && (res.status === 200 || res.status === 201)) {
+                     Alert.alert('Success', 'Registration request submitted! Awaiting approval.');
+                     // Reset form and wizard
+                     setForm({
+                         first_name: '', last_name: '', middle_name: '', birthdate: '', gender: '',
+                         phone: '', email: '', username: '', password: '', confirm_password: '', account_group_id: '', 
+                         account_type_id: [], church_location: ''
+                     });
+                     setCurrentStep(1);
+                     setOtp('');
+                     setOtpSent(false);
+                     setOtpModalVisible(false);
+                 } else {
+                     setOtpError('Invalid OTP. Please try again.');
+                     Alert.alert('Error', res?.data?.message || 'OTP verification failed. Please try again.');
+                 }
+            }
         } catch (err) {
             console.log('Registration error:', err);
-            Alert.alert("Error", err?.response?.data?.error || "Failed to submit.");
-            // Don't reset form or step on error - keep user data intact
+            Alert.alert('Error', 'Something went wrong. Please check your connection.');
+        } finally {
+            setOtpLoading(false);
         }
     };
 
@@ -365,35 +403,7 @@ export default function RegisterRequestScreen({ navigation }) {
                                     {errors.account_group_id && <Text style={styles.errorText}>{errors.account_group_id}</Text>}
                                 </View>
 
-                                {/* Multi-select Account Type */}
-                                {accountTypes.length > 0 && (
-                                    <View style={styles.accountTypeContainer}>
-                                        <Text style={styles.inputLabel}>Account Type</Text>
-                                        <View style={styles.checkboxGrid}>
-                                            {accountTypes.map((type) => (
-                                                <TouchableOpacity 
-                                                    key={type.id} 
-                                                    style={[
-                                                        styles.checkboxCard,
-                                                        form.account_type_id.includes(type.id) && styles.checkboxCardSelected
-                                                    ]}
-                                                    onPress={() => toggleAccountType(type.id)}
-                                                >
-                                                    <Checkbox
-                                                        value={form.account_type_id.includes(type.id)}
-                                                        onValueChange={() => toggleAccountType(type.id)}
-                                                        color={form.account_type_id.includes(type.id) ? '#3b82f6' : undefined}
-                                                    />
-                                                    <Text style={[
-                                                        styles.checkboxLabel,
-                                                        form.account_type_id.includes(type.id) && styles.checkboxLabelSelected
-                                                    ]}>{type.description}</Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </View>
-                                        {errors.account_type_id && <Text style={styles.errorText}>{errors.account_type_id}</Text>}
-                                    </View>
-                                )}
+                                {/* Account Type selection removed per request */}
                             </View>
                         )}
 
@@ -422,21 +432,58 @@ export default function RegisterRequestScreen({ navigation }) {
                                     colors={['#3b82f6', '#1d4ed8']}
                                     style={styles.submitButton}
                                 >
-                                    <TouchableOpacity onPress={handleSubmit} style={styles.submitButtonInner}>
-                                        <MaterialIcons name="send" size={20} color="white" style={{ marginRight: 8 }} />
-                                        <Text style={styles.submitButtonText}>Submit Request</Text>
+                                    <TouchableOpacity onPress={handleSubmit} style={styles.submitButtonInner} disabled={otpLoading}>
+                                        <MaterialIcons name={otpSent ? 'verified' : 'send'} size={20} color="white" style={{ marginRight: 8 }} />
+                                        <Text style={styles.submitButtonText}>{otpSent ? 'Verify OTP & Submit' : 'Submit Request'}</Text>
                                     </TouchableOpacity>
                                 </LinearGradient>
                             )}
                         </View>
 
-                        <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.backButton}>
+                        {/* OTP Entry Section replaced with Modal */}
+                        {/* <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.backButton}>
                             <Ionicons name="arrow-back" size={16} color="#3b82f6" style={{ marginRight: 4 }} />
                             <Text style={styles.backButtonText}>Back to Login</Text>
-                        </TouchableOpacity>
+                        </TouchableOpacity> */}
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+            <Modal
+                visible={otpModalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setOtpModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalCard}>
+                        <Text style={styles.otpTitle}>Verify OTP</Text>
+                        <Text style={styles.otpSubtitle}>Enter the 6-digit code sent to {form.email}.</Text>
+                        <TextInput
+                            value={otp}
+                            onChangeText={(v) => { setOtp(v.replace(/[^0-9]/g, '')); setOtpError(''); }}
+                            keyboardType='number-pad'
+                            maxLength={6}
+                            placeholder='OTP code'
+                            placeholderTextColor='#9ca3af'
+                        />
+
+                        {!!otpError && <Text style={styles.errorText}>{otpError}</Text>}
+
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+                            <TouchableOpacity onPress={handleSubmit} style={styles.otpVerifyBtn} disabled={otpLoading}>
+                                <Text style={styles.otpVerifyText}>{otpLoading ? 'Verifying...' : 'Verify & Submit'}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setOtpModalVisible(false)} style={[styles.prevButton, { alignSelf: 'center' }] }>
+                                <Text style={styles.prevButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <TouchableOpacity onPress={() => { setOtpSent(false); setOtp(''); setOtpError(''); setTimeout(() => { setOtpSent(true); handleSubmit(); }, 50); }}>
+                            <Text style={styles.resendText}>Resend OTP</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </ImageBackground>
     );
 }
@@ -677,6 +724,7 @@ const styles = StyleSheet.create({
          shadowOpacity: 0.1,
          shadowRadius: 4,
          elevation: 3,
+         margin:6
      },
      nextButtonInner: {
          paddingVertical: 10,
@@ -693,7 +741,8 @@ const styles = StyleSheet.create({
      },
      submitButton: {
          borderRadius: 12,
-         marginHorizontal: 12,
+         
+         margin :12,
          marginTop: 16,
          marginBottom: 12,
          shadowColor: '#3b82f6',
@@ -790,5 +839,33 @@ const styles = StyleSheet.create({
          fontWeight: '600',
          color: '#1f2937',
          textAlign: 'center',
+     },
+     // OTP styles
+     otpCard: { backgroundColor: '#fff', borderRadius: 12, padding: 12, marginTop: 16, elevation: 2 },
+     otpTitle: { fontWeight: '700', fontSize: 16 },
+     otpSubtitle: { color: '#555', marginTop: 4 },
+     otpRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+     otpInput: { flex: 1, backgroundColor: '#f8fafc', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, marginRight: 8, color: '#111', },
+     otpVerifyBtn: { backgroundColor: '#3b82f6', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
+     otpVerifyText: { color: '#fff', fontWeight: '600' },
+     resendText: { color: '#1d4ed8', marginTop: 8 },
+     modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 16,
+     },
+     modalCard: {
+        width: '100%',
+        maxWidth: 420,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+        elevation: 5,
      },
 });

@@ -7,7 +7,7 @@ const { width } = Dimensions.get('window');
 
 export default function EventScannerScreen({ navigation }) {
   const startScan = (mode) => {
-    navigation.navigate('Event Scan', { mode });
+    navigation.navigate('EventScan', { mode });
   };
 
   return (
@@ -20,7 +20,7 @@ export default function EventScannerScreen({ navigation }) {
       />
 
       <Text style={styles.title}>Event Scanner</Text>
-      <Text style={styles.subtitle}>Quickly register or attend your event</Text>
+      <Text style={styles.subtitle}>Quickly Scan QR to  attend your event</Text>
 
       {/* <TouchableOpacity onPress={() => startScan('register')} style={styles.buttonWrapper}>
         <LinearGradient colors={['#1e3c72', '#2a5298']} style={styles.button}>

@@ -15,6 +15,9 @@ const MAX_INITIAL_COMMENTS = 3;
 
 export default function EventDetailsScreen({ route, navigation }) {
   const { event, mode } = route.params;
+  useEffect(() => {
+    navigation.setOptions({ title: event?.title || 'Event Details' });
+  }, [navigation, event?.title]);
   const [expanded, setExpanded] = useState(false);
   const [liked, setLiked] = useState(false);
   const [rating, setRating] = useState(0);
@@ -52,13 +55,26 @@ export default function EventDetailsScreen({ route, navigation }) {
     setRatings(prev => ({ ...prev, [category]: value }));
   };
 
-  const openReviewModal = () => {
+  const openReviewModal = (existingReview = null) => {
+    if (existingReview) {
+      // Prefill modal with existing review values
+      const existingRatings = existingReview.category_ratings || {};
+      setRatings({
+        venue: existingRatings.venue || 0,
+        speaker: existingRatings.speaker || 0,
+        events: existingRatings.events || 0,
+        foods: existingRatings.foods || 0,
+        accommodation: existingRatings.accommodation || 0,
+      });
+      setComment(existingReview.comment || existingReview.text || '');
+      setRating(existingReview.rating || 0);
+    }
     setShowReviewModal(true);
     Animated.spring(modalAnimation, {
       toValue: 1,
       useNativeDriver: true,
       tension: 100,
-      friction: 8
+      friction: 8,
     }).start();
   };
 
@@ -122,13 +138,15 @@ export default function EventDetailsScreen({ route, navigation }) {
       const response = await UseMethod('post', `events/${event.id}/review`, reviewData);
 
       if (response && (response.status === 201 || response.status === 200)) {
+        const serverReview = response?.data?.review || {};
         const updatedReview = {
-          id: response.data.review.id,
-          text: comment,
-          rating: overallRating,
-          category_ratings: { ...ratings },
+          id: serverReview.id ?? existingUserReview?.id ?? null,
+          text: serverReview.comment ?? comment.trim(),
+          rating: serverReview.rating ?? overallRating,
+          category_ratings: serverReview.category_ratings ?? { ...ratings },
           name: 'You',
-          date: new Date().toLocaleDateString(),
+          date: new Date(serverReview.created_at ?? Date.now()).toLocaleDateString(),
+          created_at: serverReview.created_at ?? new Date().toISOString(),
           is_user_review: true
         };
 
@@ -143,6 +161,9 @@ export default function EventDetailsScreen({ route, navigation }) {
           setComments(prev => [...prev, updatedReview]);
           alert('Review submitted successfully!');
         }
+
+        // Ensure UI reflects backend state
+        await fetchReviews();
         closeReviewModal();
       } else if (response === null) {
         // UseMethod returns null on error
@@ -177,7 +198,7 @@ export default function EventDetailsScreen({ route, navigation }) {
             foods: review.category_ratings?.foods || 0,
             accommodation: review.category_ratings?.accommodation || 0
           },
-          is_user_review: review.is_user_review || false
+          is_user_review: review.is_mine || false
         }));
         setComments(formattedReviews);
         console.log('Fetched reviews:', formattedReviews);
@@ -221,8 +242,15 @@ export default function EventDetailsScreen({ route, navigation }) {
   // Check if the event has ended
   const hasEventEnded = () => {
     const now = new Date();
+    const eventEnd = new Date(`${event.end_date || event.start_date}T${event.end_time || event.start_time}`);
+    return now >= eventEnd;
+  };
+
+  // Check if the event has started
+  const hasEventStarted = () => {
+    const now = new Date();
     const eventStart = new Date(`${event.start_date}T${event.start_time}`);
-    return now > eventStart;
+    return now >= eventStart;
   };
 
   const canMarkAttendance = () => {
@@ -247,12 +275,12 @@ export default function EventDetailsScreen({ route, navigation }) {
     if (!timeStr || typeof timeStr !== 'string') {
       return 'N/A';
     }
-    
+
     const timeParts = timeStr.split(':');
     if (timeParts.length < 2) {
       return timeStr; // Return original if not in expected format
     }
-    
+
     const [hours, minutes] = timeParts;
     const date = new Date();
     date.setHours(parseInt(hours, 10), parseInt(minutes, 10));
@@ -267,12 +295,10 @@ export default function EventDetailsScreen({ route, navigation }) {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false} sx={{ marginBottom: 20 }}>
         {/* Header */}
         <ImageBackground
-          source={{ uri: `http://172.21.192.115:8000/storage/${event.image}` }}
+          source={{ uri: `${API_URL}/storage/${event.image}` }}
           style={styles.banner}
         >
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={30} color="black" />
-          </TouchableOpacity>
+
 
         </ImageBackground>
 
@@ -302,6 +328,11 @@ export default function EventDetailsScreen({ route, navigation }) {
                   <Text style={styles.compactInfoLabel}>Address and Venue</Text>
                   <Text style={styles.compactInfoValue} numberOfLines={1}>{event.venue}</Text>
                   <Text style={styles.compactInfoValue} numberOfLines={1}> at the {event.address}</Text>
+                  <TouchableOpacity style={styles.compactMapButton} onPress={() => navigation.navigate('Map', { event, mode: 'register' })}>
+                    <Ionicons name="map-outline" size={16} color="#ef4444" />
+                    <Text style={styles.compactMapButtonText}>View Map</Text>
+                    <Ionicons name="chevron-forward" size={14} color="#6b7280" />
+                  </TouchableOpacity>
                 </View>
               </View>
               <View style={[styles.compactInfoItem, { borderLeftColor: '#8b5cf6' }]}>
@@ -309,7 +340,7 @@ export default function EventDetailsScreen({ route, navigation }) {
                 <View style={styles.compactInfoContent}>
                   <Text style={styles.compactInfoLabel}>Organizer</Text>
                   <Text style={styles.compactInfoValue}>{event.organizer}</Text>
-                   <Text style={styles.compactInfoValue}>{event.contact}</Text>
+                  <Text style={styles.compactInfoValue}>{event.contact}</Text>
                 </View>
               </View>
               <View style={[styles.compactInfoItem, { borderLeftColor: '#8b5cf6' }]}>
@@ -317,22 +348,22 @@ export default function EventDetailsScreen({ route, navigation }) {
                 <View style={styles.compactInfoContent}>
                   <Text style={styles.compactInfoLabel}>Category and Church Location</Text>
                   <Text style={styles.compactInfoValue}>{event.event_types && Array.isArray(event.event_types) ? event.event_types.map((type) => type.code).join(", ") : "None"}
-                    </Text>
-                      <Text style={styles.compactInfoValue}>
-                        {event.locations && Array.isArray(event.locations) && event.locations.length > 0
-                          ? event.locations.map(loc => loc.name).filter(Boolean).join(', ') || event.venue || 'N/A'
-                          : event.venue || 'N/A'
-                        }
-                      </Text>
+                  </Text>
+                  <Text style={styles.compactInfoValue}>
+                    {event.locations && Array.isArray(event.locations) && event.locations.length > 0
+                      ? event.locations.map(loc => loc.name).filter(Boolean).join(', ') || event.venue || 'N/A'
+                      : event.venue || 'N/A'
+                    }
+                  </Text>
                 </View>
               </View>
             </View>
           </View>
 
-         
+
         </View>
-        {/* Map Card */}
-        {/* <View style={styles.modernCard}>
+        {/* Map Card
+        <View style={styles.modernCard}>
           <View style={styles.compactCardHeader}>
             <View style={[styles.headerIconContainer, { backgroundColor: '#ef4444' }]}>
               <Ionicons name="location" size={18} color="#ffffff" />
@@ -352,11 +383,17 @@ export default function EventDetailsScreen({ route, navigation }) {
         {hasEventEnded() ? (
           <View></View>
         ) : !isRegistered ? (
-          <View style={styles.card}>
-            <TouchableOpacity style={styles.registerBtn} onPress={handleRegister}>
-              <Text style={styles.registerText}>Register for Event</Text>
-            </TouchableOpacity>
-          </View>
+          hasEventStarted() ? (
+            <View style={styles.card}>
+              <Text style={styles.infoText}>🚫 Event already started — registration is closed.</Text>
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <TouchableOpacity style={styles.registerBtn} onPress={handleRegister}>
+                <Text style={styles.registerText}>Register for Event</Text>
+              </TouchableOpacity>
+            </View>
+          )
         ) : (
           <>
 
@@ -382,7 +419,7 @@ export default function EventDetailsScreen({ route, navigation }) {
               </View>
             ) : attendanceNotYetAvailable() ? (
               <View style={styles.card}>
-                <Text style={styles.infoText}>📅 Attendance will be available 1 hour before the event starts.</Text>
+                <Text style={styles.infoText}>🎟️ Thank you for registering! Attendance will be available 1 hour before the event starts.</Text>
               </View>
             ) : null}
           </>
@@ -393,7 +430,7 @@ export default function EventDetailsScreen({ route, navigation }) {
         {hasEventEnded() && (
           <>
             {/* Modern Review Section */}
-            {event.is_registered === 1 && isAttend && comments.length == 0    && (
+            {event.is_registered === 1 && isAttend && (
               <View style={styles.modernReviewContainer}>
                 <View style={styles.modernCard}>
                   <View style={styles.cardHeader}>
@@ -405,7 +442,7 @@ export default function EventDetailsScreen({ route, navigation }) {
                   <View style={styles.userReviewSection}>
                     {/* Show Write Review button only if user hasn't reviewed yet */}
                     {comments.filter(comment => comment.is_user_review).length === 0 && (
-                      <TouchableOpacity style={styles.webReviewButton} onPress={openReviewModal}>
+                      <TouchableOpacity style={styles.webReviewButton} onPress={() => openReviewModal(null)}>
                         <View style={styles.webReviewBtnContent}>
                           <View style={styles.webReviewBtnLeft}>
                             <View style={styles.webReviewBtnIcon}>
@@ -426,7 +463,7 @@ export default function EventDetailsScreen({ route, navigation }) {
                       <View style={styles.webStyleReviewCard}>
                         <View style={styles.webReviewHeader}>
                           <Text style={styles.webReviewTitle}>Your Review</Text>
-                          <TouchableOpacity style={styles.webEditButton} onPress={openReviewModal}>
+                          <TouchableOpacity style={styles.webEditButton} onPress={() => openReviewModal(comments.find(c => c.is_user_review))}>
                             <Ionicons name="create-outline" size={14} color="#1976d2" />
                             <Text style={styles.webEditButtonText}>Edit</Text>
                           </TouchableOpacity>
@@ -487,7 +524,7 @@ export default function EventDetailsScreen({ route, navigation }) {
                   <View style={[styles.headerIconContainer, { backgroundColor: '#10b981' }]}>
                     <Ionicons name="chatbubbles" size={18} color="#ffffff" />
                   </View>
-                  <Text style={styles.compactCardTitle}>My Reviews </Text>
+                  <Text style={styles.compactCardTitle}>Event Reviews</Text>
                 </View>
 
                 {visibleComments.map((review, index) => (
@@ -691,7 +728,7 @@ const ModernDetailRow = ({ icon, label, value, color = '#3b82f6' }) => (
 
 const styles = StyleSheet.create({
   container: { backgroundColor: '#f8fafc', flex: 1, marginBottom: 20 },
-  banner: { margin: 10, height: 140, justifyContent: 'flex-end', borderRadius: 2 },
+  banner: { margin: 6, height: 140, justifyContent: 'flex-end', borderRadius: 2 },
   bannerOverlay: {
     backgroundColor: 'rgba(0,0,0,0.4)',
     padding: 10,
@@ -1580,6 +1617,7 @@ const styles = StyleSheet.create({
     borderLeftColor: '#ef4444',
   },
   compactMapButton: {
+    marginTop: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
