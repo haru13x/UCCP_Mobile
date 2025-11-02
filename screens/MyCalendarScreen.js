@@ -18,8 +18,11 @@ const MyCalendarScreen = () => {
 
   const [selectedDate, setSelectedDate] = useState(today);
   const [events, setEvents] = useState([]);
+  const [monthlyEvents, setMonthlyEvents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCalendar, setShowCalendar] = useState(true);
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
   const fetchEvents = async (date) => {
     setLoading(true);
@@ -33,9 +36,111 @@ const MyCalendarScreen = () => {
     }
   };
 
+  const fetchMonthlyEvents = async (month, year) => {
+    try {
+      // Fetch all events for the month to show dots
+      const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+      const endDate = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
+      
+      const res = await UseMethod('post', 'myCalendarList', { 
+        start_date: startDate, 
+        end_date: endDate 
+      });
+      setMonthlyEvents(res.data || []);
+    } catch (e) {
+      console.error('Error fetching monthly events:', e);
+    }
+  };
+
+  // Helper function to get event status color
+  const getEventStatusColor = (statusId) => {
+    switch (statusId) {
+      case 1: return '#2196f3'; // Blue for active events
+      case 2: return '#f44336'; // Red for cancelled events
+      default: return '#4caf50'; // Green for other status
+    }
+  };
+
+  // Helper function to get events for a specific date
+  const getEventsForDate = (dateStr) => {
+    return monthlyEvents.filter(event => event.start_date === dateStr);
+  };
+
+  // Helper function to get marked dates with status dots
+  const getMarkedDates = () => {
+    const marked = {};
+    
+    // Add selected date
+    marked[selectedDate] = {
+      selected: true,
+      selectedColor: '#4c669f',
+      selectedTextColor: '#fff',
+    };
+
+    // Add dots for events
+    monthlyEvents.forEach(event => {
+      const eventDate = event.start_date;
+      if (eventDate && eventDate !== selectedDate) {
+        const statusColor = getEventStatusColor(event.status_id);
+        
+        if (!marked[eventDate]) {
+          marked[eventDate] = { dots: [] };
+        } else if (!marked[eventDate].dots) {
+          marked[eventDate].dots = [];
+        }
+        
+        // Add dot if not already present for this color
+        const existingDot = marked[eventDate].dots.find(dot => dot.color === statusColor);
+        if (!existingDot) {
+          marked[eventDate].dots.push({
+            color: statusColor,
+            selectedDotColor: statusColor,
+          });
+        }
+      }
+    });
+
+    // Handle selected date with events
+    if (selectedDate) {
+      const selectedDateEvents = getEventsForDate(selectedDate);
+      if (selectedDateEvents.length > 0) {
+        const dots = [];
+        selectedDateEvents.forEach(event => {
+          const statusColor = getEventStatusColor(event.status_id);
+          const existingDot = dots.find(dot => dot.color === statusColor);
+          if (!existingDot) {
+            dots.push({
+              color: statusColor,
+              selectedDotColor: '#fff',
+            });
+          }
+        });
+        
+        marked[selectedDate] = {
+          ...marked[selectedDate],
+          dots: dots,
+        };
+      }
+    }
+
+    return marked;
+  };
+
   useEffect(() => {
     fetchEvents(selectedDate);
   }, [selectedDate]);
+
+  useEffect(() => {
+    fetchMonthlyEvents(currentMonth, currentYear);
+  }, [currentMonth, currentYear]);
+
+  // Handle month change in calendar
+  const onMonthChange = (month) => {
+    const newMonth = month.month;
+    const newYear = month.year;
+    setCurrentMonth(newMonth);
+    setCurrentYear(newYear);
+  };
 
   const getDateType = (eventDate) => {
     const event = new Date(eventDate);
@@ -65,13 +170,9 @@ const MyCalendarScreen = () => {
             current={selectedDate}
             style={styles.calendar}
             onDayPress={(day) => setSelectedDate(day.dateString)}
-            markedDates={{
-              [selectedDate]: {
-                selected: true,
-                selectedColor: '#4c669f',
-                selectedTextColor: '#fff',
-              },
-            }}
+            onMonthChange={onMonthChange}
+            markedDates={getMarkedDates()}
+            markingType={'multi-dot'}
             theme={{
               selectedDayBackgroundColor: '#4c669f',
               todayTextColor: '#4c669f',

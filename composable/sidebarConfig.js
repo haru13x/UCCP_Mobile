@@ -5,13 +5,17 @@ export const sidebarConfig = [
     // Management group
        { label: 'Event Map', icon: { type: 'Ionicons', name: 'map-outline', color: '#4c669f' }, route: 'Map', rule: null },
        { label: 'Calendar', icon: { type: 'Ionicons', name: 'calendar-outline', color: '#4c669f' }, route: 'MyCalendar', rule: null },
+       { label: 'My Event', icon: { type: 'Ionicons', name: 'calendar', color: '#4c669f' }, route: 'My Event', rule: null },
+
+    // Notifications (replacing Events in Management)
+    { label: 'Notifications', icon: { type: 'Ionicons', name: 'notifications-outline', color: '#4c669f' }, route: 'Notifications', rule: null },
 
     {
         label: 'Management',
         icon: { type: 'Ionicons', name: 'settings-outline', color: '#4c669f' },
         rule: null,
         children: [
-            { label: 'Events', icon: { type: 'Ionicons', name: 'list-outline', color: '#4c669f' }, route: 'EventManage', rule: null },
+            { label: 'Event', icon: { type: 'Ionicons', name: 'calendar-outline', color: '#4c669f' }, route: 'EventManage', rule: null },
             { label: "User's Request", icon: { type: 'Ionicons', name: 'people-outline', color: '#4c669f' }, route: 'RequestRegistration', rule: null },
             // { label: 'Users', icon: { type: 'Ionicons', name: 'people-circle-outline', color: '#4c669f' }, route: null, rule: null, disabled: true },
         ],

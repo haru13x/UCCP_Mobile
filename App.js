@@ -2,12 +2,14 @@ import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import AppNavigator from './navigation/AppNavigator';
 import { AuthProvider } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { Provider as PaperProvider } from 'react-native-paper';
 import * as Notifications from "expo-notifications";
 import { registerBackgroundTask } from './composable/registerBackgroundTask';
 import { createNavigationContainerRef } from '@react-navigation/native';
 import { UseMethod } from './composable/useMethod';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StatusBar } from 'expo-status-bar';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -81,10 +83,14 @@ export default function App() {
 
   return (
     <PaperProvider>
+      {/* Ensure system status bar icons are visible on light backgrounds */}
+      <StatusBar style="dark" backgroundColor="#ffffff" translucent={false} />
       <AuthProvider>
-        <NavigationContainer ref={navigationRef}>
-          <AppNavigator />
-        </NavigationContainer>
+        <NotificationProvider>
+          <NavigationContainer ref={navigationRef}>
+            <AppNavigator />
+          </NavigationContainer>
+        </NotificationProvider>
       </AuthProvider>
     </PaperProvider>
   );
