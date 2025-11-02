@@ -326,8 +326,8 @@ export default function EventDetailsScreen({ route, navigation }) {
                 <Ionicons name="location-outline" size={16} color="#ef4444" />
                 <View style={styles.compactInfoContent}>
                   <Text style={styles.compactInfoLabel}>Address and Venue</Text>
-                  <Text style={styles.compactInfoValue} numberOfLines={1}>{event.venue}</Text>
-                  <Text style={styles.compactInfoValue} numberOfLines={1}> at the {event.address}</Text>
+                  <Text style={styles.compactInfoValue} numberOfLines={1}>{event.venue || 'Venue not specified'}</Text>
+                  <Text style={styles.compactInfoValue} numberOfLines={1}> at the {event.address || 'Address not specified'}</Text>
                   <TouchableOpacity style={styles.compactMapButton} onPress={() => navigation.navigate('Map', { event, mode: 'register' })}>
                     <Ionicons name="map-outline" size={16} color="#ef4444" />
                     <Text style={styles.compactMapButtonText}>View Map</Text>
@@ -339,20 +339,20 @@ export default function EventDetailsScreen({ route, navigation }) {
                 <Ionicons name="person-outline" size={16} color="#8b5cf6" />
                 <View style={styles.compactInfoContent}>
                   <Text style={styles.compactInfoLabel}>Organizer</Text>
-                  <Text style={styles.compactInfoValue}>{event.organizer}</Text>
-                  <Text style={styles.compactInfoValue}>{event.contact}</Text>
+                  <Text style={styles.compactInfoValue}>{event.organizer || 'Organizer not specified'}</Text>
+                  <Text style={styles.compactInfoValue}>{event.contact || 'Contact not available'}</Text>
                 </View>
               </View>
               <View style={[styles.compactInfoItem, { borderLeftColor: '#8b5cf6' }]}>
                 <Ionicons name="pricetag-outline" size={16} color="#8b5cf6" />
                 <View style={styles.compactInfoContent}>
                   <Text style={styles.compactInfoLabel}>Category and Church Location</Text>
-                  <Text style={styles.compactInfoValue}>{event.event_types && Array.isArray(event.event_types) ? event.event_types.map((type) => type.code).join(", ") : "None"}
+                  <Text style={styles.compactInfoValue}>{event?.event_types && Array.isArray(event.event_types) ? event.event_types.map((type) => type?.code || 'Unknown').join(", ") : "None"}
                   </Text>
                   <Text style={styles.compactInfoValue}>
-                    {event.locations && Array.isArray(event.locations) && event.locations.length > 0
-                      ? event.locations.map(loc => loc.name).filter(Boolean).join(', ') || event.venue || 'N/A'
-                      : event.venue || 'N/A'
+                    {event?.locations && Array.isArray(event.locations) && event.locations.length > 0
+                      ? event.locations.map(loc => loc?.name || 'Unknown Location').filter(Boolean).join(', ') || event?.venue || 'N/A'
+                      : event?.venue || 'N/A'
                     }
                   </Text>
                 </View>
@@ -371,7 +371,7 @@ export default function EventDetailsScreen({ route, navigation }) {
             <Text style={styles.compactCardTitle}>Event Location</Text>
           </View>
           <View style={styles.compactLocationInfo}>
-            <Text style={styles.compactAddress}>{event.address}</Text>
+            <Text style={styles.compactAddress}>{event?.address || 'Address not specified'}</Text>
             <TouchableOpacity style={styles.compactMapButton} onPress={() => navigation.navigate('Map', { event, mode: 'register' })}>
               <Ionicons name="map-outline" size={16} color="#ef4444" />
               <Text style={styles.compactMapButtonText}>View Map</Text>

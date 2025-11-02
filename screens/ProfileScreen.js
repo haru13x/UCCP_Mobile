@@ -16,6 +16,7 @@ import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { useAuth } from '../context/AuthContext';
 import { UseMethod } from '../composable/useMethod';
+import { API_URL } from '@env';
 
 export default function ProfileScreen({ navigation }) {
   const { user, updateUser } = useAuth();
@@ -37,7 +38,7 @@ export default function ProfileScreen({ navigation }) {
     confirm_password: ''
   });
 
-  const steps = ['Info', 'Account'];
+  const steps = ['Info', 'Account', 'Background'];
 
   const handleEdit = () => {
     setEditForm({
@@ -49,6 +50,10 @@ export default function ProfileScreen({ navigation }) {
       phone_number: details.phone_number || '',
       birthdate: details.birthdate || '',
       sex_id: details.sex_id || 1,
+      civil_status: details.civil_status || '',
+      nationality: details.nationality || '',
+      father_name: details.father_name || '',
+      mother_name: details.mother_name || '',
       current_password: '',
       new_password: '',
       confirm_password: ''
@@ -66,14 +71,16 @@ export default function ProfileScreen({ navigation }) {
       phone_number: details.phone_number || '',
       birthdate: details.birthdate || '',
       sex_id: details.sex_id || 1,
+      civil_status: details.civil_status || '',
+      nationality: details.nationality || '',
+      father_name: details.father_name || '',
+      mother_name: details.mother_name || '',
       current_password: '',
       new_password: '',
       confirm_password: ''
     });
     setIsEditing(false);
   };
-
-  
 
   const validateForm = () => {
     if (!editForm.first_name.trim()) {
@@ -130,18 +137,22 @@ export default function ProfileScreen({ navigation }) {
         email: editForm.email,
         phone_number: editForm.phone_number,
         birthdate: editForm.birthdate,
-        sex_id: editForm.sex_id
+        sex_id: editForm.sex_id,
+        civil_status: editForm.civil_status,
+        nationality: editForm.nationality,
+        father_name: editForm.father_name,
+        mother_name: editForm.mother_name
       };
-
+  
       // Add password fields if provided
       if (editForm.new_password) {
         updateData.current_password = editForm.current_password;
         updateData.new_password = editForm.new_password;
         updateData.confirm_password = editForm.confirm_password;
       }
-
+  
       const response = await UseMethod('post', 'profile?_method=PUT', updateData);
-
+  
       if (response && response.data) {
         Alert.alert('Success', 'Profile updated successfully!');
         // Update the user context with new data
@@ -156,7 +167,11 @@ export default function ProfileScreen({ navigation }) {
               last_name: editForm.last_name,
               phone_number: editForm.phone_number,
               birthdate: editForm.birthdate,
-              sex_id: editForm.sex_id
+              sex_id: editForm.sex_id,
+              civil_status: editForm.civil_status,
+              nationality: editForm.nationality,
+              father_name: editForm.father_name,
+              mother_name: editForm.mother_name
             }
           });
         }
@@ -172,6 +187,11 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
+  // Build absolute image URL from user.image
+  const apiBase = ( 'http://10.57.37.115:8000').trim().replace(/\/+$/, '');
+  const imagePath = user?.image;
+  const imageUrl = imagePath ? (String(imagePath).startsWith('http') ? imagePath : `${apiBase}/storage/${String(imagePath).replace(/^\/+/, '')}`) : null;
+
   return (
     <KeyboardAvoidingView 
       style={styles.container} 
@@ -181,14 +201,16 @@ export default function ProfileScreen({ navigation }) {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
+         
             <Image
               source={{
-                uri: user?.profile_picture || 'https://via.placeholder.com/80x80.png?text=User'
+                uri: imageUrl || 'https://via.placeholder.com/80x80.png?text=User'
               }}
               style={styles.avatar}
             />
           </View>
           <Text style={styles.name}>
+        
             {`${details.first_name || ''} ${details.middle_name || ''} ${details.last_name || ''}`.trim() || 'User Name'}
           </Text>
           <Text style={styles.username}>@{user?.username || editForm.username || 'username'}</Text>
@@ -226,7 +248,7 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>
-              {activeStep === 0 ? 'Personal Information' : 'Account Settings'}
+              {activeStep === 0 ? 'Personal Information' : activeStep === 1 ? 'Account Settings' : 'Family Background'}
             </Text>
             {!isEditing && (
               <TouchableOpacity style={styles.editButton} onPress={handleEdit}>
@@ -324,7 +346,7 @@ export default function ProfileScreen({ navigation }) {
                 />
               </View>
             )
-          ) : (
+          ) : activeStep === 1 ? (
             // Account Step Content
             isEditing ? (
               <View style={styles.editForm}>
@@ -403,6 +425,59 @@ export default function ProfileScreen({ navigation }) {
                   label="Account Type"
                   value={user?.account_type || 'Not provided'}
                 /> */}
+              </View>
+            )
+          ) : (
+            // Background Step Content
+            isEditing ? (
+              <View style={styles.editForm}>
+                <EditField
+                  label="Civil Status"
+                  value={editForm.civil_status}
+                  onChangeText={(text) => setEditForm({...editForm, civil_status: text})}
+                  placeholder="Enter civil status"
+                />
+                <EditField
+                  label="Nationality"
+                  value={editForm.nationality}
+                  onChangeText={(text) => setEditForm({...editForm, nationality: text})}
+                  placeholder="Enter nationality"
+                />
+                <EditField
+                  label="Father's Name"
+                  value={editForm.father_name}
+                  onChangeText={(text) => setEditForm({...editForm, father_name: text})}
+                  placeholder="Enter father's name"
+                />
+                <EditField
+                  label="Mother's Name"
+                  value={editForm.mother_name}
+                  onChangeText={(text) => setEditForm({...editForm, mother_name: text})}
+                  placeholder="Enter mother's name"
+                />
+              </View>
+            ) : (
+              <View>
+                <ProfileItem
+                  icon="heart"
+                  label="Civil Status"
+                  value={details.civil_status || 'Not provided'}
+                />
+                <ProfileItem
+                  icon="flag"
+                  label="Nationality"
+                  value={details.nationality || 'Not provided'}
+                />
+                <ProfileItem
+                  icon="man"
+                  label="Father's Name"
+                  value={details.father_name || 'Not provided'}
+                />
+                <ProfileItem
+                  icon="woman"
+                  label="Mother's Name"
+                  value={details.mother_name || 'Not provided'}
+                />
               </View>
             )
           )}

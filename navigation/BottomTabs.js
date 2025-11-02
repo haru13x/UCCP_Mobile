@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, Text } from 'react-native';
 import { Menu, Divider, List, Avatar } from 'react-native-paper';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { useNotifications } from '../context/NotificationContext';
+import { API_URL } from '@env';
 
 import HomeScreen from '../screens/HomeScreen';
 import EventScannerScreen from '../screens/EventScannerScreen';
@@ -12,6 +14,7 @@ import MyEventScreen from '../screens/MyEventScreen';
 import { useAuth } from '../context/AuthContext';
 import EventMapScreen from '../screens/EventMapScreen';
 import MyCalendarScreen from '../screens/MyCalendarScreen';
+import NotificationScreen from '../screens/NotificationScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -21,6 +24,44 @@ import { sidebarConfig } from '../composable/sidebarConfig';
 const renderIcon = ({ type, name, color, size = 22 }) => {
   const IconComp = type === 'MaterialIcons' ? MaterialIcons : Ionicons;
   return <IconComp name={name} size={size} color={color} />;
+};
+
+// Notification Icon with Badge
+const NotificationIcon = ({ color, size }) => {
+  const { unreadCount } = useNotifications();
+
+  return (
+    <View style={{ position: 'relative' }}>
+      <Ionicons name="notifications-outline" size={size} color={color} />
+      {unreadCount > 0 && (
+        <View style={{
+          position: 'absolute',
+          right: -6,
+          top: -3,
+          backgroundColor: '#ff4444',
+          borderRadius: 10,
+          minWidth: 16,
+          height: 16,
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingHorizontal: 4,
+        }}>
+          <Text style={{
+            color: 'white',
+            fontSize: 10,
+            fontWeight: 'bold',
+          }}>
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+// Notification Tab Screen Component
+const NotificationTabScreen = ({ navigation }) => {
+  return <NotificationScreen navigation={navigation} />;
 };
 
 // Add a full-screen Menu page that renders from menuConfig
@@ -39,6 +80,11 @@ const MenuScreen = ({ navigation }) => {
     return initials ? initials.toUpperCase() : 'U';
   };
   const initials = getInitials(displayName);
+
+  // Build absolute image URL if user.image is relative
+  const apiBase = (API_URL || 'http://localhost:8000').trim().replace(/\/+$/, '');
+  const imagePath = user?.image;
+  const imageUrl = imagePath ? (String(imagePath).startsWith('http') ? imagePath : `${apiBase}/storage/${String(imagePath).replace(/^\/+/, '')}`) : null;
 
   const onPressItem = (item) => {
     const parentNav = typeof navigation.getParent === 'function' ? navigation.getParent() : null;
@@ -79,7 +125,13 @@ const MenuScreen = ({ navigation }) => {
         <List.Item
           title={displayName}
           description="View profile"
-          left={() => <Avatar.Text size={44} label={initials} />}
+          left={() => (
+            imageUrl ? (
+              <Avatar.Image size={44} source={{ uri: imageUrl }} />
+            ) : (
+              <Avatar.Text size={44} label={initials} />
+            )
+          )}
           right={() => <Ionicons name="chevron-forward" size={20} color="#999" />}
           onPress={() => onPressItem({ route: 'Profile' })}
           titleStyle={styles.headerName}
@@ -200,17 +252,20 @@ export default function BottomTabs({ navigation }) {
           }}
         />
 
-        {/* Make My Event public */}
+
+
+
+        {/* Notifications tab */}
         <Tab.Screen
-          name="My Event"
-          component={MyEventScreen}
+          name="Notifications"
+          component={() => <NotificationTabScreen navigation={navigation} />}
           options={{
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="calendar" size={size} color={color} />
+              <NotificationIcon color={color} size={size} />
             ),
+            tabBarLabel: 'Notifications',
           }}
         />
-
 
         {/* Menu tab opens the full-screen Menu page */}
         <Tab.Screen

@@ -126,9 +126,7 @@ const EventScanScreen = () => {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <Ionicons name="arrow-back" size={24} color="#fff" />
-      </TouchableOpacity>
+     
       {isFocused && (
         <View style={styles.cameraWrapper}>
 

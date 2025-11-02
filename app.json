@@ -17,10 +17,10 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera",
         "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone"
-      }
+      },
+      "backgroundModes": ["background-fetch", "remote-notification"]
     },
     "android": {
-      
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -28,26 +28,57 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.CAMERA",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_BACKGROUND_LOCATION"
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "package": "com.anonymous.MyApps",
-       "config": {
+      "config": {
         "googleMaps": {
           "apiKey": "AIzaSyA-Psh9ZzR9Qp7tiJcH5RTqhFrr9nYZRdQ"
         }
       }
     },
+    "notification": {
+      "icon": "./assets/icon.png",
+      "color": "#4c669f",
+      "androidMode": "default",
+      "androidCollapsedTitle": "UCCP Events"
+    },
+    "androidStatusBar": {
+      "backgroundColor": "#ffffff",
+      "barStyle": "dark-content",
+      "translucent": false
+    },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-barcode-scanner"
+      "expo-barcode-scanner",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#4c669f",
+          "defaultChannel": "default"
+        }
+      ],
+      [
+        "expo-background-fetch",
+        {
+          "backgroundModes": ["background-fetch"]
+        }
+      ]
     ]
   }
 }
