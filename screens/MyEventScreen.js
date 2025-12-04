@@ -55,13 +55,10 @@ export default function MyEventScreen({ navigation }) {
         searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''
       );
       console.log('API Response:', res);
-      if (res && res.data) {
-        setEvents(res.data);
-        console.log('Events set:', res.data.length, 'events');
-      } else {
-        setEvents([]);
-        console.log('No events data received');
-      }
+      const data = res?.data;
+      const list = Array.isArray(data) ? data : [];
+      setEvents(list);
+      console.log('Events set:', Array.isArray(data) ? data.length : 0, 'events');
     } catch (e) {
       console.error('Error fetching events:', e);
       setEvents([]);
@@ -162,7 +159,7 @@ export default function MyEventScreen({ navigation }) {
             <ActivityIndicator size="large" color="#667eea" />
             <Text style={styles.loadingText}>Loading your events...</Text>
           </View>
-        ) : events.length === 0 ? (
+        ) : (!Array.isArray(events) || events.length === 0) ? (
           <View style={styles.emptyContainer}>
             <LinearGradient
               colors={['#f8fafc', '#e2e8f0']}
@@ -179,7 +176,7 @@ export default function MyEventScreen({ navigation }) {
           </View>
         ) : (
           <View style={styles.cardList}>
-            {events.map((event, index) => {
+            {(Array.isArray(events) ? events : []).map((event, index) => {
               const img = event.image
                 ? `${API_URL}/storage/${event.image}`
                 : null;

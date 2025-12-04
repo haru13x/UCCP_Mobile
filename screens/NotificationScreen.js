@@ -8,11 +8,13 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useNotifications } from '../context/NotificationContext';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
 import { UseMethod } from '../composable/useMethod';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const NotificationScreen = ({ navigation }) => {
   const { 
@@ -23,6 +25,7 @@ const NotificationScreen = ({ navigation }) => {
   const [allNotifications, setAllNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
   const fetchAllNotifications = useCallback(async () => {
     try {
@@ -56,26 +59,15 @@ const NotificationScreen = ({ navigation }) => {
       // Mark as read using context
       await markAsRead(notification.id);
       
-      // Navigate to event details or event list
+      // Navigate to Event Details with eventId; let the screen fetch
       if (notification.event_id) {
-        try {
-          const res = await UseMethod('get', `get-event/${notification.event_id}`);
-          if (res && res.status === 200 && res.data) {
-            navigation.navigate('EventDetails', { 
-              event: res.data,
-              mode: 'register'
-            });
-            return;
-          }
-        } catch (e) {
-          console.error('Error fetching event by id:', e);
-        }
-        // Fallback: navigate to My Event list with eventId
-        navigation.navigate('My Event', { 
+        navigation.navigate('EventDetails', {
+          event: null,
           eventId: notification.event_id,
-          openEvent: true 
+          mode: 'register',
         });
       }
+    console.log(notification.event_id);
     } catch (error) {
       console.error('Error marking notification as read:', error);
       Alert.alert('Error', 'Failed to mark notification as read');
@@ -105,7 +97,10 @@ const NotificationScreen = ({ navigation }) => {
   // Render notification item
   const renderNotificationItem = ({ item }) => {
     const isUnread = !item.is_read;
-    
+    const iconColor = isUnread ? '#667eea' : '#9ca3af';
+    const badgeBg = isUnread ? '#eef2ff' : '#f1f5f9';
+    const badgeText = isUnread ? '#4f46e5' : '#64748b';
+
     return (
       <TouchableOpacity
         style={[
@@ -114,6 +109,12 @@ const NotificationScreen = ({ navigation }) => {
         ]}
         onPress={() => handleNotificationPress(item)}
       >
+        <View style={styles.leftIconContainer}>
+          <View style={[styles.iconCircle, { backgroundColor: isUnread ? '#e0e7ff' : '#e5e7eb' }]}> 
+            <Ionicons name="notifications-outline" size={20} color={iconColor} />
+          </View>
+        </View>
+
         <View style={styles.notificationContent}>
           <View style={styles.notificationHeader}>
             <View style={styles.titleRow}>
@@ -124,12 +125,15 @@ const NotificationScreen = ({ navigation }) => {
               ]}>
                 {item.title || 'Notification'}
               </Text>
+              <View style={[styles.badge, { backgroundColor: badgeBg }]}> 
+                <Text style={[styles.badgeText, { color: badgeText }]}>{isUnread ? 'New' : 'Info'}</Text>
+              </View>
             </View>
             <Text style={styles.notificationTime}>
               {formatTime(item.created_at)}
             </Text>
           </View>
-          
+
           <Text style={[
             styles.notificationBody,
             isUnread && styles.unreadBodyText
@@ -137,11 +141,11 @@ const NotificationScreen = ({ navigation }) => {
             {item.body || 'No description available'}
           </Text>
         </View>
-        
+
         <Ionicons 
           name="chevron-forward" 
           size={20} 
-          color={isUnread ? '#4c669f' : '#999'} 
+          color={isUnread ? '#667eea' : '#9ca3af'} 
         />
       </TouchableOpacity>
     );
@@ -184,15 +188,37 @@ const NotificationScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        <TouchableOpacity 
-          style={styles.markAllButton}
-          onPress={handleMarkAllAsRead}
-        >
-          <Text style={styles.markAllText}>Mark all read</Text>
-        </TouchableOpacity>
-      </View>
+      <LinearGradient colors={["#667eea", "#764ba2"]} style={styles.headerGradient}>
+        <View style={styles.headerRow}>
+          <View style={styles.headerLeft}>
+            <Ionicons name="notifications" size={22} color="#fff" />
+            <Text style={styles.headerTitle}>Notifications</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.markAllButton}
+            onPress={handleMarkAllAsRead}
+          >
+            <Ionicons name="checkmark-done" size={16} color="#fff" />
+            <Text style={styles.markAllText}>Mark all</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Segmented filter */}
+        <View style={styles.segmentContainer}>
+          <TouchableOpacity
+            style={[styles.segmentItem, !showUnreadOnly && styles.segmentActive]}
+            onPress={() => setShowUnreadOnly(false)}
+          >
+            <Text style={[styles.segmentText, !showUnreadOnly && styles.segmentTextActive]}>All</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.segmentItem, showUnreadOnly && styles.segmentActive]}
+            onPress={() => setShowUnreadOnly(true)}
+          >
+            <Text style={[styles.segmentText, showUnreadOnly && styles.segmentTextActive]}>Unread ({unreadCount})</Text>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
 
       {/* Unread count badge */}
       {unreadCount > 0 && (
@@ -205,26 +231,24 @@ const NotificationScreen = ({ navigation }) => {
 
       {/* Notifications list */}
       <FlatList
-        data={allNotifications}
+        data={showUnreadOnly ? allNotifications.filter(n => !n.is_read) : allNotifications}
         renderItem={renderNotificationItem}
         keyExtractor={(item) => item.id.toString()}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={['#4c669f']}
+            colors={["#667eea"]}
           />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="notifications-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyText}>No notifications yet</Text>
-            <Text style={styles.emptySubtext}>
-              You'll see event updates and alerts here
-            </Text>
+            <Image source={require('../assets/no_mydata.png')} style={styles.emptyImage} />
+            <Text style={styles.emptyText}>No notifications</Text>
+            <Text style={styles.emptySubtext}>You’re all caught up. We’ll let you know when there’s something new.</Text>
           </View>
         }
-        contentContainerStyle={allNotifications.length === 0 && styles.emptyList}
+        contentContainerStyle={allNotifications.length === 0 ? styles.emptyList : null}
       />
     </View>
   );
@@ -232,9 +256,8 @@ const NotificationScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
-  
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8fafc',
   },
   loadingContainer: {
     flex: 1,
@@ -247,32 +270,65 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-  header: {
+  headerGradient: {
+    paddingTop: 10,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   // Toggle styles removed as they're no longer needed
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#fff',
+    marginLeft: 8,
   },
   markAllButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#4c669f',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   markAllText: {
     color: '#fff',
     fontSize: 12,
+    fontWeight: '700',
+  },
+  segmentContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  segmentItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  segmentActive: {
+    backgroundColor: '#fff',
+  },
+  segmentText: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 12,
     fontWeight: '600',
+  },
+  segmentTextActive: {
+    color: '#4f46e5',
   },
   unreadBadge: {
     backgroundColor: '#e3f2fd',
@@ -290,8 +346,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 5,
+    paddingVertical: 5,
     marginHorizontal: 8,
     marginVertical: 4,
     borderRadius: 8,
@@ -307,7 +363,17 @@ const styles = StyleSheet.create({
   unreadNotification: {
     backgroundColor: '#f8f9ff',
     borderLeftWidth: 4,
-    borderLeftColor: '#4c669f',
+    borderLeftColor: '#667eea',
+  },
+  leftIconContainer: {
+    marginRight: 10,
+  },
+  iconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   notificationContent: {
     flex: 1,
@@ -327,31 +393,40 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#4c669f',
+    backgroundColor: '#667eea',
     marginRight: 8,
   },
   notificationTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#666',
+    color: '#374151',
     flex: 1,
   },
   unreadText: {
-    color: '#333',
+    color: '#111827',
+    fontWeight: '700',
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeText: {
+    fontSize: 11,
     fontWeight: '700',
   },
   notificationTime: {
     fontSize: 12,
-    color: '#999',
+    color: '#6b7280',
     marginLeft: 8,
   },
   notificationBody: {
     fontSize: 14,
-    color: '#888',
+    color: '#6b7280',
     lineHeight: 20,
   },
   unreadBodyText: {
-    color: '#555',
+    color: '#374151',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -364,14 +439,19 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#999',
+    color: '#374151',
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#ccc',
+    color: '#6b7280',
     marginTop: 8,
     textAlign: 'center',
+  },
+  emptyImage: {
+    width: 120,
+    height: 120,
+    resizeMode: 'contain',
   },
 });
 

@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "MyApps",
-    "slug": "MyApps",
+    "name": "UCCPEVENT",
+    "slug": "uccpevent",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/uccp_logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -16,16 +16,19 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera",
-        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone"
-      },
-      "backgroundModes": ["background-fetch", "remote-notification"]
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone",
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
+      "edgeToEdgeEnabled": false,
       "permissions": [
         "android.permission.CAMERA",
         "ACCESS_FINE_LOCATION",
@@ -42,7 +45,7 @@
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.POST_NOTIFICATIONS"
       ],
-      "package": "com.anonymous.MyApps",
+      "package": "com.anonymous.UCCPEVENT",
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyA-Psh9ZzR9Qp7tiJcH5RTqhFrr9nYZRdQ"
@@ -61,10 +64,9 @@
       "translucent": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/uccp_logo.png"
     },
     "plugins": [
-      "expo-barcode-scanner",
       [
         "expo-notifications",
         {
@@ -76,9 +78,17 @@
       [
         "expo-background-fetch",
         {
-          "backgroundModes": ["background-fetch"]
+          "backgroundModes": [
+            "background-fetch"
+          ]
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b1dea4ed-365b-49ae-b3ed-bf13c54695ac"
+      }
+    },
+    "owner": "procharuthic092824"
   }
 }

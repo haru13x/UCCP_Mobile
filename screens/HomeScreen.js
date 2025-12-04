@@ -136,6 +136,12 @@ export default function HomeScreen({ navigation }) {
             const img = event.image
               ? `${API_URL}/storage/${event.image}`
               : null;
+            const categoryNames = Array.isArray(event?.event_types)
+              ? event.event_types
+                  .map((t) => t?.name || t?.code)
+                  .filter(Boolean)
+                  .join(', ')
+              : null;
             return (
               <TouchableOpacity
                 key={event.id}
@@ -151,8 +157,10 @@ export default function HomeScreen({ navigation }) {
                   </ImageBackground>
                 )}
                 <View style={styles.cardContent}>
+              
                   <Text style={styles.cardDate}>{formatRange(event.start_date, event.start_time, event.end_date, event.end_time)}</Text>
                   <Text style={styles.cardVenue}>📍 {event.venue || 'N/A'}</Text>
+                  <Text style={styles.cardOrganizer}>🏷️ {categoryNames || 'No category'}</Text>
 
                 </View>
               </TouchableOpacity>

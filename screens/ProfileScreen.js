@@ -188,33 +188,44 @@ export default function ProfileScreen({ navigation }) {
   };
 
   // Build absolute image URL from user.image
-  const apiBase = ( 'http://10.57.37.115:8000').trim().replace(/\/+$/, '');
+  const apiBase = ( 'https://uccp.uccpevents.com').trim().replace(/\/+$/, '');
   const imagePath = user?.image;
   const imageUrl = imagePath ? (String(imagePath).startsWith('http') ? imagePath : `${apiBase}/storage/${String(imagePath).replace(/^\/+/, '')}`) : null;
 
+  // Derive first+last initials fallback (e.g., Rheymar Dapitan -> RD)
+  const firstName = details.first_name || (user?.name ? String(user.name).trim().split(/\s+/)[0] : '') || '';
+  const lastName = details.last_name || (user?.name ? String(user.name).trim().split(/\s+/).slice(-1)[0] : '') || '';
+  const initialsFL = `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || 'U';
+
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.avatarContainer}>
-         
+    <View style={styles.container}>
+      {/* Header (fixed, not affected by keyboard) */}
+      <View style={styles.header}>
+        <View style={styles.avatarContainer}>
+          {imageUrl ? (
             <Image
-              source={{
-                uri: imageUrl || 'https://via.placeholder.com/80x80.png?text=User'
-              }}
+              source={{ uri: imageUrl }}
               style={styles.avatar}
             />
-          </View>
-          <Text style={styles.name}>
-        
-            {`${details.first_name || ''} ${details.middle_name || ''} ${details.last_name || ''}`.trim() || 'User Name'}
-          </Text>
-          <Text style={styles.username}>@{user?.username || editForm.username || 'username'}</Text>
+          ) : (
+            <View style={styles.avatarInitials}>
+              <Text style={styles.avatarInitialsText}>{initialsFL}</Text>
+            </View>
+          )}
         </View>
+        <Text style={styles.name}>
+          {`${details.first_name || ''} ${details.middle_name || ''} ${details.last_name || ''}`.trim() || 'User Name'}
+        </Text>
+        <Text style={styles.username}>@{user?.username || editForm.username || 'username'}</Text>
+      </View>
+
+      {/* Content (keyboard-aware) */}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 84 : 0}
+        style={{ flex: 1 }}
+      >
+        <ScrollView showsVerticalScrollIndicator={false}>
 
         {/* Stepper Navigation */}
         <View style={styles.stepperContainer}>
@@ -512,12 +523,13 @@ export default function ProfileScreen({ navigation }) {
         )}
 
         {/* Back Button */}
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+        {/* <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={20} color="#fff" />
           <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </TouchableOpacity> */}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -535,18 +547,18 @@ function ProfileItem({ icon, label, value }) {
   );
 }
 
-function EditField({ label, value, onChangeText, placeholder, keyboardType = 'default' }) {
+function EditField({ label, value, onChangeText, placeholder, keyboardType = 'default', secureTextEntry = false }) {
   return (
     <View style={styles.fieldContainer}>
-      <Text style={styles.fieldLabel}>{label}</Text>
       <TextInput
         style={styles.textInput}
         value={value}
         onChangeText={onChangeText}
-        placeholder={placeholder}
+        placeholder={placeholder || label}
         keyboardType={keyboardType}
         autoCapitalize={keyboardType === 'email-address' ? 'none' : 'words'}
         placeholderTextColor="#999"
+        secureTextEntry={secureTextEntry}
       />
     </View>
   );
@@ -559,9 +571,9 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 12,
-    paddingHorizontal: 12,
+    paddingTop: 24,
+    paddingBottom: 8,
+    paddingHorizontal: 10,
     backgroundColor: '#fff',
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
@@ -577,9 +589,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 2,
     borderColor: '#1877f2',
   },
@@ -609,9 +621,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f8ff',
   },
   stepIndicator: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#e2e8f0',
     alignItems: 'center',
     justifyContent: 'center',
@@ -621,7 +633,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1877f2',
   },
   stepNumber: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#64748b',
   },
@@ -629,7 +641,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   stepLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '500',
     color: '#64748b',
   },
@@ -651,16 +663,32 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
   },
   name: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
     color: '#1a202c',
     textAlign: 'center',
-    marginBottom: 2,
+    marginBottom: 1,
   },
   username: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#64748b',
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  avatarInitials: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#1877f2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#1877f2',
+  },
+  avatarInitialsText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   editButton: {
     flexDirection: 'row',
@@ -696,14 +724,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: 12,
+    paddingTop: 12,
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#1a202c',
   },
@@ -722,8 +750,8 @@ const styles = StyleSheet.create({
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f8fafc',
   },
@@ -746,29 +774,29 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   value: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#1a202c',
     fontWeight: '600',
   },
   editForm: {
-    padding: 16,
+    padding: 12,
   },
   fieldContainer: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#374151',
-    marginBottom: 6,
+    marginBottom: 5,
   },
   textInput: {
     borderWidth: 1,
     borderColor: '#d1d5db',
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
+    paddingVertical: 7,
+    fontSize: 13,
     color: '#1a202c',
     backgroundColor: '#fff',
   },
@@ -780,17 +808,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   picker: {
-    height: 44,
+    height: 40,
   },
   actionButtons: {
     flexDirection: 'row',
-    paddingHorizontal: 12,
-    marginBottom: 16,
-    gap: 10,
+    paddingHorizontal: 10,
+    marginBottom: 12,
+    gap: 8,
   },
   actionButton: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -824,13 +852,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#6b7280',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
     borderRadius: 16,
     justifyContent: 'center',
     marginHorizontal: 12,
-    marginTop: 12,
-    marginBottom: 20,
+    marginTop: 10,
+    marginBottom: 16,
     shadowColor: '#6b7280',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
@@ -839,7 +867,43 @@ const styles = StyleSheet.create({
   },
   backText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  // Compact Quick Actions
+  quickActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  quickActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+  },
+  quickActionPrimary: {
+    backgroundColor: '#1877f2',
+    borderColor: '#1877f2',
+  },
+  quickActionSecondary: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+  },
+  quickActionTextPrimary: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  quickActionTextSecondary: {
+    color: '#0ea5e9',
+    fontSize: 13,
     fontWeight: '600',
     marginLeft: 6,
   },

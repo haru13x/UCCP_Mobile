@@ -10,16 +10,16 @@ export const sidebarConfig = [
     // Notifications (replacing Events in Management)
     { label: 'Notifications', icon: { type: 'Ionicons', name: 'notifications-outline', color: '#4c669f' }, route: 'Notifications', rule: null },
 
-    {
-        label: 'Management',
-        icon: { type: 'Ionicons', name: 'settings-outline', color: '#4c669f' },
-        rule: null,
-        children: [
-            { label: 'Event', icon: { type: 'Ionicons', name: 'calendar-outline', color: '#4c669f' }, route: 'EventManage', rule: null },
-            { label: "User's Request", icon: { type: 'Ionicons', name: 'people-outline', color: '#4c669f' }, route: 'RequestRegistration', rule: null },
-            // { label: 'Users', icon: { type: 'Ionicons', name: 'people-circle-outline', color: '#4c669f' }, route: null, rule: null, disabled: true },
-        ],
-    },
+    // {
+    //     label: 'Management',
+    //     icon: { type: 'Ionicons', name: 'settings-outline', color: '#4c669f' },
+    //     rule: null,
+    //     children: [
+    //         { label: 'Event', icon: { type: 'Ionicons', name: 'calendar-outline', color: '#4c669f' }, route: 'EventManage', rule: null },
+    //         { label: "User's Request", icon: { type: 'Ionicons', name: 'people-outline', color: '#4c669f' }, route: 'RequestRegistration', rule: null },
+    //         // { label: 'Users', icon: { type: 'Ionicons', name: 'people-circle-outline', color: '#4c669f' }, route: null, rule: null, disabled: true },
+    //     ],
+    // },
 
     // Settings group
     // {

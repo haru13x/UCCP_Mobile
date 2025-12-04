@@ -28,27 +28,39 @@ export const UseMethod = async (
       headers["Content-Type"] = "application/json";
     }
 
-    const apiBase = (API_URL || 'http://localhost:8000').trim().replace(/\/+$/, '');
+    const apiBase = (API_URL || 'https://uccp.uccpevents.com').trim().replace(/\/+$/, '');
     const api = `${apiBase}/api/${url}`;
 
     let response;
 
     switch (method.toLowerCase()) {
-      case "get":
-        response = await axios.get(`${api}/${params}`, { headers, responseType });
+      case "get": {
+        const url = params
+          ? (String(params).startsWith("?") ? `${api}${params}` : `${api}/${params}`)
+          : api;
+        response = await axios.get(url, { headers, responseType });
         break;
+      }
 
-      case "post":
-        response = await axios.post(api, payload, { headers, responseType });
+      case "post": {
+        const url = params
+          ? (String(params).startsWith("?") ? `${api}${params}` : `${api}/${params}`)
+          : api;
+        response = await axios.post(url, payload, { headers, responseType });
         break;
+      }
 
       case "put":
         response = await axios.put(api, payload, { headers, responseType });
         break;
 
-      case "delete":
-        response = await axios.delete(`${api}/${params}`, { headers, responseType });
+      case "delete": {
+        const url = params
+          ? (String(params).startsWith("?") ? `${api}${params}` : `${api}/${params}`)
+          : api;
+        response = await axios.delete(url, { headers, responseType });
         break;
+      }
 
       default:
         throw new Error(`Invalid HTTP method: ${method}`);
