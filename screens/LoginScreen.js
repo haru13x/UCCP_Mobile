@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,14 @@ import {
   ActivityIndicator,
   ScrollView,
   Image,
+  ImageBackground,
   KeyboardAvoidingView,
   Platform,
   Dimensions,
   StatusBar,
+  SafeAreaView,
+  Pressable,
+  Keyboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -34,6 +38,13 @@ const LoginScreen = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const scrollViewRef = useRef(null);
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+
+  const isEmailValid = /\S+@\S+\.\S+/.test(email);
+  const canSubmit = isEmailValid && password?.length >= 2 && !loading;
 
   const { login } = useAuth();
 
@@ -75,112 +86,154 @@ const LoginScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
+        {/* Dismiss keyboard when tapping outside inputs */}
+        <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss}>
         <ScrollView
-          contentContainerStyle={styles.scrollContainer}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          enableOnAndroid={true}
-        >
-          {/* Header Section */}
-          <View style={styles.headerSection}>
-            <View style={styles.logoContainer}>
-              <Image
-                source={require('../assets/icon.png')}
-                style={styles.logoImg}
-                resizeMode="contain"
-              />
-            </View>
-            <Text style={styles.title}>Welcome Back</Text>
-            
-            <Text style={styles.subtitle}>Sign in to your account</Text>
-          </View>
-
-          {/* Form Section */}
-          <View style={styles.formSection}>
-            {error ? (
-              <HelperText type="error" visible={!!error} style={styles.errorText}>
-                {error}
-              </HelperText>
-            ) : null}
-
-            <PaperTextInput
-              mode="outlined"
-              label="Email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-              left={<PaperTextInput.Icon icon="email-outline" />}
-              style={styles.input}
-              outlineColor="#E5E7EB"
-              activeOutlineColor="#667eea"
-              theme={{
-                colors: {
-                  background: '#ffffff',
-                  surface: '#ffffff',
-                }
-              }}
-            />
-
-            <PaperTextInput
-              mode="outlined"
-              label="Password"
-              secureTextEntry
-              autoCapitalize="none"
-              value={password}
-              onChangeText={setPassword}
-              left={<PaperTextInput.Icon icon="lock-outline" />}
-              style={styles.input}
-              outlineColor="#E5E7EB"
-              activeOutlineColor="#667eea"
-              theme={{
-                colors: {
-                  background: '#ffffff',
-                  surface: '#ffffff',
-                }
-              }}
-            />
-
-            <Button
-              mode="contained"
-              onPress={handleLogin}
-              loading={loading}
-              disabled={loading}
-              style={styles.loginButton}
-              buttonColor="#667eea"
-              contentStyle={styles.loginButtonContent}
-              labelStyle={styles.loginButtonLabel}
+              ref={scrollViewRef}
+              contentContainerStyle={styles.scrollContainer}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              enableOnAndroid={true}
+              nestedScrollEnabled={true}
+              contentInsetAdjustmentBehavior="automatic"
             >
-              Sign In
-            </Button>
+              {/* Header Section */}
+              <View style={styles.headerSection}>
+                <View style={styles.logoCircle}>
+                  <Image
+                    source={require('../assets/uccp_logo.png')}
+                    style={styles.logoImg}
+                    resizeMode="contain"
+                  />
+                </View>
+                <Text style={styles.title}>UCCP Events</Text>
+                <Text style={styles.subtitle}>Sign in to your account</Text>
+              </View>
 
-            <View style={styles.linkSection}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('ForgotPassword')}
-                style={styles.linkButton}
-              >
-                <Text style={styles.linkText}>Forgot Password?</Text>
-              </TouchableOpacity>
+              {/* Form Section over background */}
+              <View style={styles.formSection}>
+                <View style={styles.formCard}>
+                  {error ? (
+                    <HelperText type="error" visible={!!error} style={styles.errorText}>
+                      {error}
+                    </HelperText>
+                  ) : null}
 
-              <TouchableOpacity
-                onPress={() => navigation.navigate('RequestUser')}
-                style={styles.linkButton}
-              >
-                <Text style={styles.linkText}>Create Account</Text>
-              </TouchableOpacity>
+                  <PaperTextInput
+                    mode="outlined"
+                    label="Email"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={email}
+                    onChangeText={setEmail}
+                    left={<PaperTextInput.Icon icon="email-outline" />}
+                    style={styles.input}
+                    outlineColor="#E5E7EB"
+                    activeOutlineColor="#667eea"
+                    onFocus={() => scrollViewRef.current?.scrollTo({ y: 0, animated: true })}
+                    ref={emailRef}
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                  onSubmitEditing={() => passwordRef.current?.focus()}
+                  onBlur={() => scrollViewRef.current?.scrollTo({ y: 0, animated: true })}
+                  theme={{
+                    colors: {
+                      background: '#ffffff',
+                      surface: '#ffffff',
+                    }
+                  }}
+                />
+
+                  {!isEmailValid && email?.length > 0 ? (
+                    <HelperText type="error" visible={!isEmailValid}>
+                      Please enter a valid email address
+                    </HelperText>
+                  ) : null}
+
+                  <PaperTextInput
+                    mode="outlined"
+                    label="Password"
+                    secureTextEntry={!passwordVisible}
+                    autoCapitalize="none"
+                    value={password}
+                    onChangeText={setPassword}
+                    left={<PaperTextInput.Icon icon="lock-outline" />}
+                    right={<PaperTextInput.Icon icon={passwordVisible ? 'eye-off-outline' : 'eye-outline'} onPress={() => setPasswordVisible((v) => !v)} />}
+                    style={styles.input}
+                    outlineColor="#E5E7EB"
+                    activeOutlineColor="#667eea"
+                    onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+                    ref={passwordRef}
+                  returnKeyType="done"
+                  onSubmitEditing={() => { Keyboard.dismiss(); handleLogin(); }}
+                  onBlur={() => scrollViewRef.current?.scrollTo({ y: 0, animated: true })}
+                  theme={{
+                    colors: {
+                      background: '#ffffff',
+                      surface: '#ffffff',
+                    }
+                  }}
+                />
+
+                  <Button
+                    mode="contained"
+                    onPress={handleLogin}
+                    loading={loading}
+                    disabled={!canSubmit}
+                    style={styles.loginButton}
+                    buttonColor="#1877F2"
+                    contentStyle={styles.loginButtonContent}
+                    labelStyle={styles.loginButtonLabel}
+                  >
+                    Log In
+                  </Button>
+
+                  {/* Forgot password below inputs, right-aligned */}
+                  <View style={styles.forgotRow}>
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('ForgotPassword')}
+                      style={styles.forgotButton}
+                    >
+                      <Text style={styles.forgotText}>Forgot password?</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Divider */}
+                  <View style={styles.dividerRow}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>OR</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+
+                  {/* Create new account as a prominent button */}
+                  <Button
+                    mode="contained"
+                    onPress={() => navigation.navigate('RequestUser')}
+                    style={styles.createButton}
+                    buttonColor="#42B72A"
+                    contentStyle={styles.createButtonContent}
+                    labelStyle={styles.createButtonLabel}
+                  >
+                    Request new account
+                  </Button>
+
+                  <Text style={styles.footnote}>
+                    By continuing, you agree to our Terms & Privacy Policy
+                  </Text>
             </View>
           </View>
         </ScrollView>
+        </Pressable>
       </KeyboardAvoidingView>
-    </View>
+      </SafeAreaView>
   );
 };
 
@@ -189,55 +242,89 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#ffffff',
   },
+  heroHeader: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 24,
+    marginTop: 24,
+  },
   keyboardContainer: {
     flex: 1,
   },
   scrollContainer: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingTop: Platform.OS === 'ios' ? 60 : 80,
     paddingBottom: 40,
+  },
+  heroContainer: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 20,
+  },
+  heroImage: {
+    width: '100%',
+    height: 140,
+  },
+  heroBg: {
+    height: 180,
+  },
+  heroBgImage: {
+    transform: [{ scale: 1.02 }],
+  },
+  heroOverlay: {
+    flex: 1,
+    padding: 16,
+  },
+  
+  formCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
   headerSection: {
     alignItems: 'center',
-    marginBottom: 48,
-    paddingTop: 20,
+    paddingVertical: 10,
   },
-  logoContainer: {
+  logoCircle: {
     width: 80,
     height: 80,
-    borderRadius: 20,
-    backgroundColor: '#F8FAFC',
+    borderRadius: 40,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
   },
   logoImg: {
     width: 50,
     height: 50,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#111827',
     textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: -0.5,
+    marginBottom: 6,
+    letterSpacing: -0.2,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
     fontWeight: '400',
-    lineHeight: 24,
+    lineHeight: 22,
   },
   formSection: {
     flex: 1,
@@ -247,45 +334,84 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   input: {
-    marginBottom: 20,
+    marginBottom: 14,
     backgroundColor: '#ffffff',
   },
   loginButton: {
-    marginTop: 8,
-    marginBottom: 32,
-    borderRadius: 12,
+    marginTop: 6,
+    marginBottom: 16,
+    borderRadius: 10,
     elevation: 0,
-    shadowColor: '#667eea',
+    shadowColor: '#1877F2',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 3,
     },
     shadowOpacity: 0.2,
     shadowRadius: 8,
   },
   loginButtonContent: {
-    paddingVertical: 12,
+    paddingVertical: 5,
   },
   loginButtonLabel: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     letterSpacing: 0.5,
   },
-  linkSection: {
+  forgotRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 16,
+    justifyContent: 'flex-end',
+    paddingTop: 6,
   },
-  linkButton: {
-    paddingVertical: 12,
+  forgotButton: {
+    paddingVertical: 6,
     paddingHorizontal: 4,
   },
-  linkText: {
-    color: '#667eea',
-    fontSize: 14,
+  forgotText: {
+    color: '#1877F2',
+    fontSize: 13,
     fontWeight: '500',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  dividerText: {
+    marginHorizontal: 10,
+    color: '#6B7280',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  createButton: {
+    alignSelf: 'center',
+    minWidth: '70%',
+    borderRadius: 10,
+    elevation: 0,
+    shadowColor: '#42B72A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  createButtonContent: {
+    paddingVertical: 2,
+  },
+  createButtonLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  footnote: {
+    marginTop: 10,
     textAlign: 'center',
+    color: '#6B7280',
+    fontSize: 11,
   },
 });
 

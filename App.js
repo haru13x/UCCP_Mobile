@@ -64,13 +64,21 @@ export default function App() {
       if (notifData?.eventId) {
         try {
           const res = await UseMethod('get', `get-event/${notifData?.eventId}`);
-          const event = res.data;
+          // Normalize event payload shape
+          const event = res?.data?.event ?? res?.data?.data ?? res?.data;
 
           console.log("📦 Event data fetched:", event);
 
-          navigationRef.current?.navigate('EventDetails', { event, mode: 'register' });
+          if (event && event.id) {
+            navigationRef.current?.navigate('EventDetails', { event, mode: 'register' });
+          } else {
+            // Fallback: navigate with eventId so EventDetails can fetch internally
+            navigationRef.current?.navigate('EventDetails', { eventId: notifData?.eventId, mode: 'register' });
+          }
         } catch (error) {
           console.error("🚨 Error fetching event data:", error);
+          // On error, still navigate with eventId to let the screen handle fetching/retry
+          navigationRef.current?.navigate('EventDetails', { eventId: notifData?.eventId, mode: 'register' });
         }
       }
     });

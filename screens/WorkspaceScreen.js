@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, Image } from 'react-native';
 import { Card, Text, Button, TextInput, ActivityIndicator, Divider, HelperText, Avatar, Chip, IconButton } from 'react-native-paper';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { UseMethod } from '../composable/useMethod';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function WorkspaceScreen({ route, navigation }) {
   const { event } = route.params || {};
@@ -14,6 +15,13 @@ export default function WorkspaceScreen({ route, navigation }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [registering, setRegistering] = useState(false);
+
+  // Overview & Pie state
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState('');
+  const [locationStats, setLocationStats] = useState([]); // [{ location, registered, attended }]
+  const [chartUrlReg, setChartUrlReg] = useState('');
+  const [chartUrlAttend, setChartUrlAttend] = useState('');
 
   // Event time helpers
   const getEventStartEnd = (ev) => {
@@ -49,6 +57,8 @@ export default function WorkspaceScreen({ route, navigation }) {
 
   useEffect(() => {
     fetchUsers('');
+    // Load overview stats
+    loadStats();
   }, [eventId]);
 
   const onSearch = async () => {
@@ -96,6 +106,85 @@ export default function WorkspaceScreen({ route, navigation }) {
       Alert.alert('Error', e?.message || 'Error registering users');
     } finally {
       setRegistering(false);
+    }
+  };
+
+  // Helper to fetch all registered users across pagination
+  const fetchAllRegisteredUsers = async () => {
+    const aggregated = [];
+    let page = 1;
+    let lastPage = 1;
+    do {
+      const res = await UseMethod('post', `get-event-registered/${eventId}?page=${page}`, { search: '' });
+      const paginated = res?.data?.registered_users;
+      const data = Array.isArray(paginated?.data) ? paginated.data : [];
+      lastPage = Number(paginated?.last_page || 1);
+      aggregated.push(...data);
+      page += 1;
+    } while (page <= lastPage);
+    return aggregated;
+  };
+
+  const buildQuickChartUrl = (config) => {
+    const base = 'https://quickchart.io/chart?c=';
+    return `${base}${encodeURIComponent(JSON.stringify(config))}`;
+  };
+
+  const generateCharts = (stats) => {
+    const labels = stats.map((s) => s.location);
+    const regData = stats.map((s) => s.registered);
+    const attData = stats.map((s) => s.attended);
+    const colors = ['#667eea','#764ba2','#f59e0b','#10b981','#ef4444','#3b82f6','#8b5cf6','#06b6d4','#f43f5e','#22c55e'];
+
+    const regConfig = {
+      type: 'pie',
+      data: {
+        labels,
+        datasets: [{ data: regData, backgroundColor: colors.slice(0, labels.length) }],
+      },
+      options: {
+        plugins: { legend: { position: 'bottom' } },
+      },
+    };
+
+    const attConfig = {
+      type: 'pie',
+      data: {
+        labels,
+        datasets: [{ data: attData, backgroundColor: colors.slice(0, labels.length) }],
+      },
+      options: {
+        plugins: { legend: { position: 'bottom' } },
+      },
+    };
+
+    setChartUrlReg(buildQuickChartUrl(regConfig));
+    setChartUrlAttend(buildQuickChartUrl(attConfig));
+  };
+
+  const loadStats = async () => {
+    if (!eventId) return;
+    setStatsLoading(true);
+    setStatsError('');
+    try {
+      const regs = await fetchAllRegisteredUsers();
+      // Group by church location name
+      const byLoc = new Map();
+      regs.forEach((r) => {
+        const loc = r?.details?.churchLocation?.name || 'Unknown';
+        const isAttend = !!r?.is_attend;
+        const entry = byLoc.get(loc) || { location: loc, registered: 0, attended: 0 };
+        entry.registered += 1;
+        if (isAttend) entry.attended += 1;
+        byLoc.set(loc, entry);
+      });
+      const stats = Array.from(byLoc.values()).sort((a, b) => b.registered - a.registered);
+      setLocationStats(stats);
+      generateCharts(stats);
+    } catch (e) {
+      setStatsError(e?.message || 'Failed to load overview');
+    } finally {
+      setStatsLoading(false);
     }
   };
 
@@ -149,43 +238,36 @@ export default function WorkspaceScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Compact Header with Actions */}
-      <Card style={styles.headerCard}>
-        <Card.Content style={styles.headerContent}>
-          <View style={styles.headerRow}>
-            <View style={styles.titleSection}>
-              <Text variant="titleMedium" style={styles.title}>
-                {event?.title || 'Event Registration'}
-              </Text>
-              <Text style={styles.subtitle}>
-                {selectedUsers.length} selected
-              </Text>
-              {/* Registration status messages */}
-              {hasEventEnded ? (
-                <Text style={styles.statusText}>Event ended — registration is closed.</Text>
-              ) :  null}
-            </View>
-            <View style={styles.actionButtons}>
-              <Button 
-                
-                onPress={() => navigation.goBack()}
-                
-                style={styles.cancelBtn}
-              >
-                Cancel
-              </Button>
-              <Chip
-                onPress={registerSelected}
-                disabled={selectedUsers.length === 0 || registering || isRegistrationClosed}
-                mode='outlined'
-                style={styles.registeredChip}
-              >
-                {registering ? 'Registering...' : 'Register'}
-              </Chip>
-            </View>
+      {/* Modern Gradient Header */}
+      <LinearGradient colors={["#667eea", "#764ba2"]} style={styles.headerGradient}>
+        <View style={styles.headerRow}>
+          <View style={styles.titleSection}>
+            <Text style={styles.headerTitle}>
+              {event?.title || 'Event Registration'}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              {selectedUsers.length} selected
+            </Text>
+            {hasEventEnded ? (
+              <Text style={styles.headerStatus}>Event ended — registration is closed.</Text>
+            ) : null}
           </View>
-        </Card.Content>
-      </Card>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={[styles.headerButton, styles.headerButtonSecondary]} onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back" size={16} color="#1f2937" />
+              <Text style={styles.headerButtonTextSecondary}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.headerButton, styles.headerButtonPrimary]}
+              onPress={registerSelected}
+              disabled={selectedUsers.length === 0 || registering || isRegistrationClosed}
+            >
+              <Ionicons name="checkmark-circle" size={16} color="#fff" />
+              <Text style={styles.headerButtonText}>{registering ? 'Registering...' : 'Register'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </LinearGradient>
 
       {/* Compact Search Bar */}
       <Card style={styles.searchCard}>
@@ -222,9 +304,9 @@ export default function WorkspaceScreen({ route, navigation }) {
             ItemSeparatorComponent={() => <Divider style={styles.divider} />}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Text style={styles.empty}>
-                  {search ? 'No users found' : 'Enter search term to find users'}
-                </Text>
+                <Image source={require('../assets/no_mydata.png')} style={styles.emptyImage} />
+                <Text style={styles.emptyTitle}>{search ? 'No users found' : 'Search to find users'}</Text>
+                <Text style={styles.emptySubtitle}>Try a different name, email, or phone</Text>
               </View>
             }
             showsVerticalScrollIndicator={false}
@@ -232,6 +314,50 @@ export default function WorkspaceScreen({ route, navigation }) {
           />
         )}
       </View>
+
+      {/* Overview & Pie by Church Location */}
+      <Card style={styles.overviewCard}>
+        <Card.Content>
+          <View style={styles.overviewHeaderRow}>
+            <Text style={styles.overviewTitle}>Overview by Church Location</Text>
+            {statsLoading ? <ActivityIndicator size={16} /> : null}
+          </View>
+          {statsError ? (
+            <HelperText type="error" visible={!!statsError}>{statsError}</HelperText>
+          ) : (
+            <>
+              {locationStats.map((s, idx) => (
+                <View key={`${s.location}-${idx}`} style={styles.statRow}>
+                  <Text style={styles.statLocation} numberOfLines={1}>{s.location}</Text>
+                  <View style={styles.statCounts}>
+                    <Chip style={[styles.statChip, { backgroundColor: '#e0e7ff' }]} textStyle={styles.statChipText} icon="account">
+                      {s.registered} registered
+                    </Chip>
+                    <Chip style={[styles.statChip, { backgroundColor: '#dcfce7' }]} textStyle={styles.statChipText} icon="check">
+                      {s.attended} attended
+                    </Chip>
+                  </View>
+                </View>
+              ))}
+
+              <View style={styles.pieRow}>
+                {chartUrlReg ? (
+                  <View style={styles.pieItem}>
+                    <Text style={styles.pieTitle}>Registrations</Text>
+                    <Image source={{ uri: chartUrlReg }} style={styles.pieImage} resizeMode="contain" />
+                  </View>
+                ) : null}
+                {chartUrlAttend ? (
+                  <View style={styles.pieItem}>
+                    <Text style={styles.pieTitle}>Attendance</Text>
+                    <Image source={{ uri: chartUrlAttend }} style={styles.pieImage} resizeMode="contain" />
+                  </View>
+                ) : null}
+              </View>
+            </>
+          )}
+        </Card.Content>
+      </Card>
     </View>
   );
 }
@@ -240,6 +366,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  headerGradient: {
+    paddingTop: 40,
+    paddingBottom: 14,
+    paddingHorizontal: 12,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    marginBottom: 6,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
   },
   // Header styles
   headerCard: {
@@ -259,6 +398,57 @@ const styles = StyleSheet.create({
   },
   titleSection: {
     flex: 1,
+  },
+  headerTitle: {
+    fontWeight: '800',
+    color: '#fff',
+    fontSize: 20,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  headerStatus: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#ffe4e6',
+    fontWeight: '600',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  headerButtonPrimary: {
+    backgroundColor: '#22c55e',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  headerButtonSecondary: {
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
+  headerButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  headerButtonTextSecondary: {
+    color: '#1f2937',
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 6,
   },
   title: {
     fontWeight: '600',
@@ -316,6 +506,68 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingVertical: 4,
+  },
+  overviewCard: {
+    marginHorizontal: 6,
+    marginBottom: 8,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    elevation: 1,
+  },
+  overviewHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  overviewTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1f2937',
+  },
+  statRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  statLocation: {
+    flex: 1,
+    fontSize: 13,
+    color: '#374151',
+    marginRight: 8,
+  },
+  statCounts: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  statChip: {
+    height: 28,
+  },
+  statChipText: {
+    fontSize: 12,
+  },
+  pieRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    gap: 10,
+  },
+  pieItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  pieTitle: {
+    fontSize: 13,
+    color: '#374151',
+    marginBottom: 6,
+  },
+  pieImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 12,
+    backgroundColor: '#f9fafb',
   },
   userRow: {
     flexDirection: 'row',
@@ -377,11 +629,23 @@ const styles = StyleSheet.create({
     elevation: 1,
     marginVertical: 4,
   },
-  empty: {
+  emptyImage: {
+    width: 140,
+    height: 140,
+    marginBottom: 10,
+    resizeMode: 'contain',
+  },
+  emptyTitle: {
     textAlign: 'center',
-    color: '#999',
-    fontSize: 14,
-    fontStyle: 'italic',
+    color: '#1f2937',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  emptySubtitle: {
+    textAlign: 'center',
+    color: '#6b7280',
+    fontSize: 12,
   },
   divider: {
     height: 0.5,

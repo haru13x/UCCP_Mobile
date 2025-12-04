@@ -1,4 +1,4 @@
-package com.anonymous.MyApps
+package com.anonymous.UCCPEVENT
 
 import android.os.Build
 import android.os.Bundle

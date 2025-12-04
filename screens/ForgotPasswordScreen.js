@@ -10,8 +10,11 @@ import {
   Platform,
   Dimensions,
   Alert,
+  SafeAreaView,
+  StatusBar,
+  Pressable,
+  Keyboard,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Card, Button, TextInput as PaperTextInput, HelperText } from 'react-native-paper';
 import { UseMethod } from '../composable/useMethod';
 
@@ -148,17 +151,14 @@ const ForgotPasswordScreen = ({ navigation }) => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-    >
-      <LinearGradient
-        colors={['#667eea', '#764ba2', '#f093fb']}
-        style={styles.gradientContainer}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+    <SafeAreaView style={styles.screen}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
+      <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss}>
         <ScrollView
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
@@ -166,7 +166,13 @@ const ForgotPasswordScreen = ({ navigation }) => {
           enableOnAndroid={true}
         >
           <View style={styles.brand}>
-         
+            <View style={styles.logoContainer}>
+              <Image
+                source={require('../assets/uccp_logo.png')}
+                style={styles.logoImg}
+                resizeMode="contain"
+              />
+            </View>
             <Text style={styles.title}>{getStepTitle()}</Text>
             <Text style={styles.subtitle}>{getStepSubtitle()}</Text>
           </View>
@@ -196,8 +202,9 @@ const ForgotPasswordScreen = ({ navigation }) => {
                   loading={loading}
                   disabled={loading}
                   style={styles.actionButton}
-                  buttonColor="#667eea"
+                  buttonColor="#1877F2"
                   contentStyle={{ paddingVertical: 8 }}
+                  labelStyle={{ fontWeight: '600' }}
                 >
                   Send OTP
                 </Button>
@@ -226,8 +233,9 @@ const ForgotPasswordScreen = ({ navigation }) => {
                   loading={loading}
                   disabled={loading}
                   style={styles.actionButton}
-                  buttonColor="#667eea"
+                  buttonColor="#1877F2"
                   contentStyle={{ paddingVertical: 8 }}
+                  labelStyle={{ fontWeight: '600' }}
                 >
                   Verify OTP
                 </Button>
@@ -237,7 +245,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
                   onPress={handleResendOtp}
                   disabled={loading}
                   style={styles.linkButton}
-                  textColor="#667eea"
+                  textColor="#1877F2"
                   labelStyle={{ fontWeight: '600' }}
                 >
                   Resend OTP
@@ -267,8 +275,9 @@ const ForgotPasswordScreen = ({ navigation }) => {
                   loading={loading}
                   disabled={loading}
                   style={styles.actionButton}
-                  buttonColor="#667eea"
+                  buttonColor="#1877F2"
                   contentStyle={{ paddingVertical: 8 }}
+                  labelStyle={{ fontWeight: '600' }}
                 >
                   Reset Password
                 </Button>
@@ -278,93 +287,88 @@ const ForgotPasswordScreen = ({ navigation }) => {
           
           </Card>
         </ScrollView>
-      </LinearGradient>
-    </KeyboardAvoidingView>
+      </Pressable>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  gradientContainer: {
+  screen: {
     flex: 1,
+    backgroundColor: '#ffffff',
   },
   container: {
     flexGrow: 1,
     justifyContent: 'flex-start',
-    padding: 5,
-    paddingTop: 60,
-    paddingBottom: 100,
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 40,
   },
   brand: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 24,
   },
   logoContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  logoImg: {
     width: 80,
     height: 80,
     borderRadius: 40,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
-    textAlign: 'center',
-    fontWeight: '400',
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
-  card: {
-    padding: 10,
-  
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    marginHorizontal: 1,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 15,
-  },
-  paperInput: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 16,
-    backgroundColor: 'transparent',
-  },
-  actionButton: {
-    marginTop: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
     elevation: 3,
   },
+  logoImg: {
+    width: 50,
+    height: 50,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 6,
+    letterSpacing: -0.2,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    fontWeight: '400',
+    lineHeight: 22,
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  paperInput: {
+    marginBottom: 14,
+    backgroundColor: '#ffffff',
+  },
+  actionButton: {
+    marginTop: 6,
+    borderRadius: 10,
+    elevation: 0,
+    shadowColor: '#1877F2',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
   linkButton: {
-    marginTop: 12,
+    marginTop: 10,
   },
 });
 

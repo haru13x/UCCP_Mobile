@@ -46,12 +46,19 @@ export default function EventMapScreen({ route, navigation }) {
   const travelModes = ['driving', 'walking', 'transit', 'bicycling'];
   const modeIcons = { walking: 'walk', bicycling: 'bike', driving: 'car-outline', transit: 'bus' };
 
+  const [hasLocationPermission, setHasLocationPermission] = useState(false);
   useEffect(() => {
     (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-      let loc = await Location.getCurrentPositionAsync({});
-      setLocation(loc.coords);
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        const granted = status === 'granted';
+        setHasLocationPermission(granted);
+        if (!granted) return;
+        let loc = await Location.getCurrentPositionAsync({});
+        setLocation(loc.coords);
+      } catch (e) {
+        setHasLocationPermission(false);
+      }
     })();
   }, []);
 
@@ -258,7 +265,7 @@ export default function EventMapScreen({ route, navigation }) {
           }}
           onPress={handleMapPress}
           provider={'google'}
-          showsUserLocation
+          showsUserLocation={hasLocationPermission}
           showsCompass
           mapType="standard"
           toolbarEnabled
@@ -282,6 +289,10 @@ export default function EventMapScreen({ route, navigation }) {
               strokeColor="blue"
               mode={selectedMode}
               onReady={result => { setRouteDistance(result.distance); setRouteDuration(result.duration); mapRef.current?.fitToCoordinates(result.coordinates, { edgePadding: { top: 50, bottom: 50, left: 50, right: 50 }, animated: true }); }}
+              onError={(errMessage) => {
+                console.warn('Directions error:', errMessage);
+                Alert.alert('Directions', 'Unable to load route. Please check your connection or try a different mode.');
+              }}
             />
           )}
         </MapView>

@@ -1,12 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ImageBackground, ScrollView, Alert, KeyboardAvoidingView, Platform,
-    Dimensions, Modal
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform,
+    Dimensions, Modal, ActivityIndicator, Image
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { UseMethod } from '../composable/useMethod';
-import Checkbox from 'expo-checkbox';
 
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -26,6 +25,9 @@ export default function RegisterRequestScreen({ navigation }) {
     const [otpLoading, setOtpLoading] = useState(false);
     const [otpError, setOtpError] = useState('');
     const [otpModalVisible, setOtpModalVisible] = useState(false);
+    const [resendSeconds, setResendSeconds] = useState(0);
+    const resendTimerRef = useRef(null);
+    const otpInputRef = useRef(null);
 
     const [accountGroups, setAccountGroups] = useState([]);
     const [accountTypes, setAccountTypes] = useState([]);
@@ -55,6 +57,79 @@ export default function RegisterRequestScreen({ navigation }) {
         };
         fetchData();
     }, []);
+
+    // Cleanup resend timer on unmount
+    useEffect(() => {
+        return () => {
+            if (resendTimerRef.current) {
+                clearInterval(resendTimerRef.current);
+            }
+        };
+    }, []);
+
+    const startResendCooldown = (seconds = 30) => {
+        if (resendTimerRef.current) clearInterval(resendTimerRef.current);
+        setResendSeconds(seconds);
+        resendTimerRef.current = setInterval(() => {
+            setResendSeconds(prev => {
+                if (prev <= 1) {
+                    clearInterval(resendTimerRef.current);
+                    resendTimerRef.current = null;
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+    };
+
+    const sendRegistrationOtp = async () => {
+        try {
+            setOtpLoading(true);
+            setOtpError('');
+            const payload = {
+                email: form.email,
+                registration_data: {
+                    is_request: 1,
+                    username: form.username,
+                    email: form.email,
+                    password: form.password,
+                    password_confirmation: form.confirm_password,
+                    first_name: form.first_name,
+                    last_name: form.last_name,
+                    middle_name: form.middle_name,
+                    gender: form.gender,
+                    location: form.church_location,
+                    group_id: form.account_group_id,
+                }
+            };
+            const res = await UseMethod('post', 'generate-registration-otp', payload);
+            if (res && res.status === 200) {
+                Alert.alert('OTP Sent', 'An OTP was sent to your email. Please enter it to verify.');
+                setOtpSent(true);
+                setOtp('');
+                setOtpModalVisible(true);
+                startResendCooldown(30);
+                return true;
+            } else {
+                Alert.alert('Error', res?.data?.message || 'Failed to send OTP. Please try again.');
+                return false;
+            }
+        } catch (err) {
+            console.log('Send OTP error:', err);
+            Alert.alert('Error', 'Failed to send OTP. Please try again.');
+            return false;
+        } finally {
+            setOtpLoading(false);
+        }
+    };
+
+    const handleCancelOtp = async () => {
+        setOtpModalVisible(false);
+        setOtp('');
+        setOtpError('');
+        setOtpSent(false);
+        await sendRegistrationOtp();
+    };
     
     const nextStep = () => {
         if (validateCurrentStep()) {
@@ -144,33 +219,15 @@ export default function RegisterRequestScreen({ navigation }) {
             setOtpError('');
 
             if (!otpSent) {
-                // Step 1: Request registration OTP (mirror web payload)
-                const payload = {
-                    email: form.email,
-                    registration_data: {
-                        is_request: 1,
-                        username: form.username,
-                        email: form.email,
-                        password: form.password,
-                        password_confirmation: form.confirm_password,
-                        first_name: form.first_name,
-                        last_name: form.last_name,
-                        middle_name: form.middle_name,
-                        gender: form.gender,
-                        location: form.church_location,
-                        group_id: form.account_group_id,
-                    }
-                };
-
-                const res = await UseMethod('post', 'generate-registration-otp', payload);
-                if (res && res.status === 200) {
-                    Alert.alert('OTP Sent', 'An OTP was sent to your email. Please enter it to verify.');
-                    setOtpSent(true);
-                    setOtpModalVisible(true);
-                } else {
-                    Alert.alert('Error', res?.data?.message || 'Failed to send OTP. Please try again.');
-                }
+                await sendRegistrationOtp();
             } else {
+                // Require a valid 6-digit OTP before verifying
+                if (!otp || otp.length !== 6) {
+                    setOtpError('Please enter the 6-digit OTP');
+                    setOtpModalVisible(true);
+                    setOtpLoading(false);
+                    return;
+                }
                 // Step 2: Verify OTP to complete registration
                 const verifyPayload = { email: form.email, otp };
                 const res = await UseMethod('post', 'verify-registration-otp', verifyPayload);
@@ -201,18 +258,15 @@ export default function RegisterRequestScreen({ navigation }) {
 
 
     return (
-        <ImageBackground source={require('../assets/login.png')} style={styles.bg}>
+        <View style={styles.bg}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
                     <View style={styles.mainCard}>
                         {/* Header */}
-                        <LinearGradient
-                            colors={['#667eea', '#764ba2']}
-                            style={styles.headerGradient}
-                        >
-                            <MaterialIcons name="person-add" size={28} color="white" />
+                        <View style={styles.headerSimple}>
+                            <Image source={require('../assets/uccp_logo.png')} style={styles.logo} />
                             <Text style={styles.headerTitle}>Request Account</Text>
-                        </LinearGradient>
+                        </View>
                         
                         {/* Step Indicator */}
                         <View style={styles.stepIndicator}>
@@ -278,7 +332,6 @@ export default function RegisterRequestScreen({ navigation }) {
                                 />
 
                                 <View style={styles.datePickerContainer}>
-                                    <Text style={styles.inputLabel}>Birthdate</Text>
                                     <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateInput}>
                                         <Ionicons name="calendar" size={20} color="#3b82f6" style={styles.inputIcon} />
                                         <Text style={form.birthdate ? styles.dateText : styles.placeholderText}>
@@ -298,7 +351,6 @@ export default function RegisterRequestScreen({ navigation }) {
                                 )}
 
                                 <View style={styles.pickerContainer}>
-                                       <Text style={styles.inputLabel}>Gender</Text>
                                     <View style={styles.pickerWrapper}>
                                         
                                         <FontAwesome5 name="venus-mars" size={16} color="#3b82f6" style={styles.inputIcon} />
@@ -366,7 +418,6 @@ export default function RegisterRequestScreen({ navigation }) {
                         {currentStep === 3 && (
                             <View style={styles.sectionCard}>
                                 <View style={styles.pickerContainer}>
-                                    <Text style={styles.inputLabel}>Church Location</Text>
                                     <View style={styles.pickerWrapper}>
                                         <MaterialIcons name="location-on" size={16} color="#3b82f6" style={styles.inputIcon} />
                                         <Picker
@@ -386,7 +437,6 @@ export default function RegisterRequestScreen({ navigation }) {
 
 
                                 <View style={styles.pickerContainer}>
-                                    <Text style={styles.inputLabel}>Account Group</Text>
                                     <View style={styles.pickerWrapper}>
                                         <MaterialIcons name="group" size={16} color="#3b82f6" style={styles.inputIcon} />
                                         <Picker
@@ -421,7 +471,7 @@ export default function RegisterRequestScreen({ navigation }) {
                             {currentStep < totalSteps ? (
                                 <TouchableOpacity onPress={nextStep} style={styles.nextButton}>
                                     <LinearGradient
-                                        colors={['#3b82f6', '#1d4ed8']}
+                                        colors={['#1877F2', '#166FE5']}
                                         style={styles.nextButtonInner}
                                     >
                                         <Text style={styles.nextButtonText}>Next</Text>
@@ -429,7 +479,7 @@ export default function RegisterRequestScreen({ navigation }) {
                                 </TouchableOpacity>
                             ) : (
                                 <LinearGradient
-                                    colors={['#3b82f6', '#1d4ed8']}
+                                    colors={['#1877F2', '#166FE5']}
                                     style={styles.submitButton}
                                 >
                                     <TouchableOpacity onPress={handleSubmit} style={styles.submitButtonInner} disabled={otpLoading}>
@@ -456,24 +506,38 @@ export default function RegisterRequestScreen({ navigation }) {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalCard}>
+                        <TouchableOpacity onPress={() => setOtpModalVisible(false)} style={{ position: 'absolute', right: 8, top: 8, padding: 6 }}>
+                            <Ionicons name="close" size={18} color="#64748b" />
+                        </TouchableOpacity>
                         <Text style={styles.otpTitle}>Verify OTP</Text>
                         <Text style={styles.otpSubtitle}>Enter the 6-digit code sent to {form.email}.</Text>
-                        <TextInput
-                            value={otp}
-                            onChangeText={(v) => { setOtp(v.replace(/[^0-9]/g, '')); setOtpError(''); }}
-                            keyboardType='number-pad'
-                            maxLength={6}
-                            placeholder='OTP code'
-                            placeholderTextColor='#9ca3af'
-                        />
+                        <View style={styles.otpRow}>
+                            <Ionicons name="key-outline" size={18} color="#64748b" style={{ marginRight: 8 }} />
+                            <TextInput
+                                style={styles.otpInput}
+                                value={otp}
+                                onChangeText={(v) => { setOtp(v.replace(/[^0-9]/g, '')); setOtpError(''); }}
+                                keyboardType='number-pad'
+                                maxLength={6}
+                                placeholder='Enter OTP'
+                                placeholderTextColor='#9ca3af'
+                            />
+                        </View>
 
                         {!!otpError && <Text style={styles.errorText}>{otpError}</Text>}
 
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
-                            <TouchableOpacity onPress={handleSubmit} style={styles.otpVerifyBtn} disabled={otpLoading}>
-                                <Text style={styles.otpVerifyText}>{otpLoading ? 'Verifying...' : 'Verify & Submit'}</Text>
+                            <TouchableOpacity onPress={handleSubmit} style={styles.otpVerifyBtn} disabled={otpLoading || otp.length !== 6}>
+                                {otpLoading ? (
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+                                        <Text style={styles.otpVerifyText}>Verifying...</Text>
+                                    </View>
+                                ) : (
+                                    <Text style={styles.otpVerifyText}>{otp.length === 6 ? 'Verify & Submit' : 'Enter OTP'}</Text>
+                                )}
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={() => setOtpModalVisible(false)} style={[styles.prevButton, { alignSelf: 'center' }] }>
+                            <TouchableOpacity onPress={() => { setOtpModalVisible(false); setOtpSent(false); setOtp(''); setOtpError(''); }} style={[styles.prevButton, { alignSelf: 'center' }] }>
                                 <Text style={styles.prevButtonText}>Cancel</Text>
                             </TouchableOpacity>
                         </View>
@@ -484,74 +548,89 @@ export default function RegisterRequestScreen({ navigation }) {
                     </View>
                 </View>
             </Modal>
-        </ImageBackground>
+        </View>
     );
 }
 
-const InputField = ({ label, value, onChange, error, keyboardType = "default", secureTextEntry, icon }) => (
-    <View style={{ flex: 1, marginHorizontal: 4 }}>
-        <Text style={styles.inputLabel}>{label}</Text>
-        <View style={styles.inputWithIcon}>
-            {icon && <Ionicons name={icon} size={16} color="#3b82f6" style={styles.inputIcon} />}
-            <TextInput
-                style={styles.inputField}
-                value={value}
-                onChangeText={onChange}
-                keyboardType={keyboardType}
-                secureTextEntry={secureTextEntry}
-                placeholder={`Enter ${label.toLowerCase()}`}
-                placeholderTextColor="#9ca3af"
-            />
+const InputField = ({ label, value, onChange, error, keyboardType = "default", secureTextEntry, icon }) => {
+    const [hidden, setHidden] = React.useState(!!secureTextEntry);
+    const isPassword = !!secureTextEntry;
+
+    return (
+        <View style={{ flex: 1, marginHorizontal: 4 }}>
+            <View style={styles.inputWithIcon}>
+                {icon && <Ionicons name={icon} size={16} color="#3b82f6" style={styles.inputIcon} />}
+                <TextInput
+                    style={styles.inputField}
+                    value={value}
+                    onChangeText={onChange}
+                    keyboardType={keyboardType}
+                    secureTextEntry={isPassword ? hidden : false}
+                    placeholder={label}
+                    placeholderTextColor="#9ca3af"
+                />
+                {isPassword && (
+                    <TouchableOpacity onPress={() => setHidden(h => !h)} style={styles.eyeButton}>
+                        <Ionicons name={hidden ? 'eye-off' : 'eye'} size={18} color="#64748b" />
+                    </TouchableOpacity>
+                )}
+            </View>
+            {error && <Text style={styles.errorText}>{error}</Text>}
         </View>
-        {error && <Text style={styles.errorText}>{error}</Text>}
-    </View>
-);
+    );
+};
 
 const styles = StyleSheet.create({
     bg: {
         flex: 1,
+        backgroundColor: '#ffffff',
     },
     container: {
          padding: 12,
          paddingBottom: 24,
      },
      mainCard: {
-         backgroundColor: 'rgba(255,255,255,0.98)',
-         borderRadius: 20,
-         overflow: 'hidden',
-         shadowColor: '#000',
-         shadowOffset: { width: 0, height: 4 },
-         shadowOpacity: 0.12,
-         shadowRadius: 12,
-         elevation: 8,
+         backgroundColor: 'transparent',
+         borderRadius: 0,
+         overflow: 'visible',
+         shadowColor: 'transparent',
+         shadowOffset: { width: 0, height: 0 },
+         shadowOpacity: 0,
+         shadowRadius: 0,
+         elevation: 0,
          marginVertical: 12,
          marginHorizontal: 4,
      },
-     headerGradient: {
-         flexDirection: 'row',
+     headerSimple: {
          alignItems: 'center',
          justifyContent: 'center',
-         paddingVertical: 16,
-         paddingHorizontal: 20,
+         paddingTop: 24,
+         paddingBottom: 12,
+     },
+     logo: {
+         width: 72,
+         height: 72,
+         resizeMode: 'contain',
+         borderRadius: 12,
+         marginBottom: 8,
      },
      headerTitle: {
-         fontSize: 20,
+         fontSize: 22,
          fontWeight: '700',
-         color: 'white',
-         marginLeft: 10,
+         color: '#0f172a',
      },
-     sectionCard: {
-         backgroundColor: '#fff',
-         marginHorizontal: 12,
-         marginVertical: 6,
-         borderRadius: 12,
-         padding: 16,
-         shadowColor: '#000',
-         shadowOffset: { width: 0, height: 1 },
-         shadowOpacity: 0.06,
-         shadowRadius: 4,
-         elevation: 2,
-     },
+      sectionCard: {
+          backgroundColor: 'transparent',
+          marginHorizontal: 12,
+          marginVertical: 6,
+          borderRadius: 0,
+          padding: 4,
+          shadowColor: 'transparent',
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0,
+          shadowRadius: 0,
+          elevation: 0,
+      },
     sectionHeader: {
          flexDirection: 'row',
          alignItems: 'center',
@@ -583,68 +662,72 @@ const styles = StyleSheet.create({
          marginBottom: 8,
          minHeight: 44,
      },
-     inputWithIcon: {
-         flexDirection: 'row',
-         alignItems: 'center',
-         backgroundColor: '#f8fafc',
-         borderWidth: 1,
-         borderColor: '#e2e8f0',
-         borderRadius: 10,
-         paddingHorizontal: 12,
-         marginBottom: 8,
-         minHeight: 44,
-     },
-     inputField: {
-         flex: 1,
-         paddingVertical: 12,
-         fontSize: 14,
-         color: '#1e293b',
-         marginLeft: 8,
-     },
-     inputIcon: {
-         marginRight: 8,
-     },
+      inputWithIcon: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: '#f8fafc',
+          borderWidth: 1,
+          borderColor: '#e2e8f0',
+          borderRadius: 10,
+          paddingHorizontal: 12,
+          marginBottom: 10,
+          minHeight: 52,
+      },
+      inputField: {
+          flex: 1,
+          paddingVertical: 12,
+          fontSize: 16,
+          color: '#1e293b',
+          marginLeft: 8,
+      },
+      inputIcon: {
+          marginRight: 8,
+      },
+      eyeButton: {
+          paddingHorizontal: 6,
+          paddingVertical: 6,
+      },
     datePickerContainer: {
          marginBottom: 8,
      },
-     dateInput: {
-         flexDirection: 'row',
-         alignItems: 'center',
-         backgroundColor: '#f8fafc',
-         borderWidth: 1,
-         borderColor: '#e2e8f0',
-         borderRadius: 10,
-         padding: 12,
-         minHeight: 44,
-     },
-     dateText: {
-         fontSize: 14,
-         color: '#1e293b',
-         marginLeft: 8,
-     },
-     placeholderText: {
-         fontSize: 14,
-         color: '#9ca3af',
-         marginLeft: 8,
-     },
+      dateInput: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: '#f8fafc',
+          borderWidth: 1,
+          borderColor: '#e2e8f0',
+          borderRadius: 10,
+          padding: 14,
+          minHeight: 48,
+      },
+      dateText: {
+          fontSize: 16,
+          color: '#1e293b',
+          marginLeft: 8,
+      },
+      placeholderText: {
+          fontSize: 16,
+          color: '#9ca3af',
+          marginLeft: 8,
+      },
      pickerContainer: {
          marginBottom: 8,
      },
-     pickerWrapper: {
-         flexDirection: 'row',
-         alignItems: 'center',
-         backgroundColor: '#f8fafc',
-         borderWidth: 1,
-         borderColor: '#e2e8f0',
-         borderRadius: 10,
-         paddingLeft: 12,
-         minHeight: 44,
-     },
-     picker: {
-         flex: 1,
-         height: 44,
-         marginLeft: 6,
-     },
+      pickerWrapper: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: '#f8fafc',
+          borderWidth: 1,
+          borderColor: '#e2e8f0',
+          borderRadius: 10,
+          paddingLeft: 12,
+          minHeight: 48,
+      },
+      picker: {
+          flex: 1,
+          height: 48,
+          marginLeft: 6,
+      },
      accountTypeContainer: {
          marginBottom: 12,
      },
@@ -830,10 +913,10 @@ const styles = StyleSheet.create({
      stepLineActive: {
          backgroundColor: '#3b82f6',
      },
-     stepTitles: {
-         alignItems: 'center',
-         marginBottom: 16,
-     },
+      stepTitles: {
+          alignItems: 'center',
+          marginBottom: 8,
+      },
      stepTitle: {
          fontSize: 16,
          fontWeight: '600',

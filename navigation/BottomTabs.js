@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, ScrollView, StyleSheet, Text } from 'react-native';
+import { View, ScrollView, StyleSheet, Text, Image, TouchableOpacity } from 'react-native';
 import { Menu, Divider, List, Avatar } from 'react-native-paper';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -82,9 +82,16 @@ const MenuScreen = ({ navigation }) => {
   const initials = getInitials(displayName);
 
   // Build absolute image URL if user.image is relative
-  const apiBase = (API_URL || 'http://localhost:8000').trim().replace(/\/+$/, '');
+  const apiBase = (API_URL || 'https://uccp.uccpevents.com').trim().replace(/\/+$/, '');
   const imagePath = user?.image;
   const imageUrl = imagePath ? (String(imagePath).startsWith('http') ? imagePath : `${apiBase}/storage/${String(imagePath).replace(/^\/+/, '')}`) : null;
+
+  // Ensure first + last name are displayed when no profile image
+  const hasImage = !!imageUrl;
+  const firstName = user?.first_name || user?.firstName || (user?.name ? String(user.name).trim().split(/\s+/)[0] : '');
+  const lastName = user?.last_name || user?.lastName || (user?.name ? String(user.name).trim().split(/\s+/).slice(-1)[0] : '');
+  const nameFallback = [firstName, lastName].filter(Boolean).join(' ').trim();
+  const initialsFL = `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || initials;
 
   const onPressItem = (item) => {
     const parentNav = typeof navigation.getParent === 'function' ? navigation.getParent() : null;
@@ -120,26 +127,36 @@ const MenuScreen = ({ navigation }) => {
 
   return (
     <ScrollView contentContainerStyle={styles.menuContainer}>
-      {/* Messenger-style header with avatar and name */}
-      <List.Section style={styles.headerSection}>
-        <List.Item
-          title={displayName}
-          description="View profile"
-          left={() => (
-            imageUrl ? (
-              <Avatar.Image size={44} source={{ uri: imageUrl }} />
-            ) : (
-              <Avatar.Text size={44} label={initials} />
-            )
-          )}
-          right={() => <Ionicons name="chevron-forward" size={20} color="#999" />}
-          onPress={() => onPressItem({ route: 'Profile' })}
-          titleStyle={styles.headerName}
-          descriptionStyle={styles.headerSubtitle}
+      {/* Hero header with logo and profile */}
+      <View style={styles.heroContainer}>
+        <View style={styles.heroBackground} />
+        <Image
+          source={require('../assets/uccp_logo.png')}
+          style={styles.heroLogo}
+          resizeMode="contain"
         />
-      </List.Section>
-      <Divider />
+   
+        <View style={styles.heroProfileRow}>
+          <TouchableOpacity onPress={() => onPressItem({ route: 'Profile' })}>
+            {hasImage ? (
+              <Avatar.Image size={64} source={{ uri: imageUrl }} />
+            ) : (
+              <Avatar.Text size={64} label={initialsFL} />
+            )}
+          </TouchableOpacity>
+          <View style={{ marginLeft: 12 }}>
+            <Text style={styles.heroName}>{hasImage ? displayName : (nameFallback || displayName)}</Text>
+            {user?.email ? (
+              <Text style={styles.heroEmail}>{user.email}</Text>
+            ) : null}
+            <TouchableOpacity onPress={() => onPressItem({ route: 'Profile' })}>
+              <Text style={styles.heroLink}>View Profile</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
 
+      {/* Menu items */}
       {sidebarConfig.map((item, sectionIdx) => (
         item.children && Array.isArray(item.children) ? (
           <List.Section key={`section-${sectionIdx}`}>
@@ -175,15 +192,64 @@ const MenuScreen = ({ navigation }) => {
           )
         )
       ))}
+
+      {/* Footer actions */}
+      {/* <View style={styles.footer}>
+        <TouchableOpacity style={styles.logoutButton} onPress={() => onPressItem({ action: 'logout' })}>
+          <Ionicons name="log-out-outline" size={18} color="#fff" />
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+      </View> */}
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   menuContainer: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#fff',
+    paddingBottom: 24,
+    backgroundColor: '#f8fafc',
+  },
+  heroContainer: {
+    paddingTop: 24,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  heroBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 160,
+    backgroundColor: 'white',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  heroLogo: {
+    width: 140,
+    height: 44,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  heroProfileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  heroName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  heroEmail: {
+    fontSize: 13,
+    color: '#475569',
+    marginTop: 2,
+  },
+  heroLink: {
+    fontSize: 13,
+    color: '#1e3a8a',
+    marginTop: 6,
+    fontWeight: '600',
   },
   sectionHeader: {
     fontWeight: 'bold',
@@ -207,10 +273,40 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   itemRow: {
-    minHeight: 52,
+    minHeight: 56,
+    marginHorizontal: 8,
+    marginVertical: 4,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
   itemTitle: {
     fontSize: 16,
+  },
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ef4444',
+    borderRadius: 12,
+    paddingVertical: 10,
+    gap: 8,
+    marginTop: 8,
+  },
+  logoutText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+    marginLeft: 8,
   },
 });
 

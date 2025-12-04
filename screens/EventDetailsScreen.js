@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
   ImageBackground, TouchableOpacity, LayoutAnimation,
-  Platform, UIManager, FlatList, Modal, Animated
+  Platform, UIManager, FlatList, Modal, Animated,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '@env';
@@ -14,10 +15,33 @@ if (Platform.OS === 'android') {
 const MAX_INITIAL_COMMENTS = 3;
 
 export default function EventDetailsScreen({ route, navigation }) {
-  const { event, mode } = route.params;
+  const { event: eventParam, eventId, mode } = route.params || {};
+  const [event, setEvent] = useState(eventParam || null);
   useEffect(() => {
+  
     navigation.setOptions({ title: event?.title || 'Event Details' });
   }, [navigation, event?.title]);
+    useEffect(() => {
+  
+    // If no event object was passed but we have an eventId, fetch it
+    if (!event && eventId) {
+      (async () => {
+        try {
+          const res = await UseMethod('get', `get-event/${eventId}`);
+          const fetched = res.data
+          console.log(fetched)
+          if (fetched && fetched?.id) {
+            setEvent(fetched);
+          } else {
+            console.warn('Event not found or empty response for id:', eventId);
+            setEvent(null);
+          }
+        } catch (e) {
+          console.error('Failed to load event by id:', e);
+        }
+      })();
+    }
+  }, [event, eventId]);
   const [expanded, setExpanded] = useState(false);
   const [liked, setLiked] = useState(false);
   const [rating, setRating] = useState(0);
@@ -36,6 +60,11 @@ export default function EventDetailsScreen({ route, navigation }) {
   const [modalAnimation] = useState(new Animated.Value(0));
 
   const [isAttend, setIsAttend] = useState(event?.is_attended === 1);
+  useEffect(() => {
+    // Keep derived booleans in sync when event loads
+    setIsRegistered(event?.is_registered === 1);
+    setIsAttend(event?.is_attended === 1);
+  }, [event]);
   const visibleComments = showAll ? comments : comments.slice(0, MAX_INITIAL_COMMENTS);
 
   const toggleExpand = () => {
@@ -122,7 +151,7 @@ export default function EventDetailsScreen({ route, navigation }) {
       const existingUserReview = comments.find(c => c.is_user_review);
 
       const reviewData = {
-        reviewId: existingUserReview ? existingUserReview.id : null,
+        reviewId: existingUserReview ? existingUserReview?.id : null,
         rating: overallRating,
         comment: comment.trim(),
         category_ratings: {
@@ -135,7 +164,11 @@ export default function EventDetailsScreen({ route, navigation }) {
       };
 
       console.log('Submitting review data:', reviewData);
-      const response = await UseMethod('post', `events/${event.id}/review`, reviewData);
+      if (!event?.id) {
+        alert('Event not loaded yet. Please wait and try again.');
+        return;
+      }
+      const response = await UseMethod('post', `events/${event?.id}/review`, reviewData);
 
       if (response && (response.status === 201 || response.status === 200)) {
         const serverReview = response?.data?.review || {};
@@ -183,7 +216,7 @@ export default function EventDetailsScreen({ route, navigation }) {
 
   const fetchReviews = async () => {
     try {
-      const response = await UseMethod('get', `events/${event.id}/reviews`);
+      const response = await UseMethod('get', `events/${event?.id}/reviews`);
       if (response && response.status === 200 && response.data.reviews) {
         const formattedReviews = response.data.reviews.map(review => ({
           id: review.id,
@@ -209,13 +242,15 @@ export default function EventDetailsScreen({ route, navigation }) {
   };
 
   useEffect(() => {
-    if (hasEventEnded()) {
+    if (event && hasEventEnded()) {
       fetchReviews();
     }
-  }, [event.id]);
+  }, [event?.id]);
 
   const formatDateTime = (date, time) => {
+    if (!date || !time) return 'N/A';
     const dt = new Date(`${date}T${time}`);
+    if (isNaN(dt.getTime())) return 'N/A';
     return dt.toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -226,7 +261,7 @@ export default function EventDetailsScreen({ route, navigation }) {
   };
   const handleAttend = async () => {
     try {
-      const res = await UseMethod("post", `mark-attend`, { event_id: event.id });
+      const res = await UseMethod("post", `mark-attend`, { event_id: event?.id });
       if (res && res.status === 200) {
         alert("Attendance marked successfully!");
         setIsAttend(true);
@@ -241,21 +276,36 @@ export default function EventDetailsScreen({ route, navigation }) {
 
   // Check if the event has ended
   const hasEventEnded = () => {
+    if (!event) return false;
+    const endDate = event?.end_date ?? event?.start_date;
+    const endTime = event?.end_time ?? event?.start_time;
+    if (!endDate || !endTime) return false;
+    const eventEnd = new Date(`${endDate}T${endTime}`);
+    if (isNaN(eventEnd.getTime())) return false;
     const now = new Date();
-    const eventEnd = new Date(`${event.end_date || event.start_date}T${event.end_time || event.start_time}`);
     return now >= eventEnd;
   };
 
   // Check if the event has started
   const hasEventStarted = () => {
+    if (!event) return false;
+    const startDate = event?.start_date;
+    const startTime = event?.start_time;
+    if (!startDate || !startTime) return false;
+    const eventStart = new Date(`${startDate}T${startTime}`);
+    if (isNaN(eventStart.getTime())) return false;
     const now = new Date();
-    const eventStart = new Date(`${event.start_date}T${event.start_time}`);
     return now >= eventStart;
   };
 
   const canMarkAttendance = () => {
+    if (!event) return false;
+    const startDate = event?.start_date;
+    const startTime = event?.start_time;
+    if (!startDate || !startTime) return false;
+    const eventStart = new Date(`${startDate}T${startTime}`);
+    if (isNaN(eventStart.getTime())) return false;
     const now = new Date();
-    const eventStart = new Date(`${event.start_date}T${event.start_time}`);
     const diffInMinutes = (eventStart - now) / (1000 * 60);
     return diffInMinutes <= 60 && diffInMinutes > 0;
   };
@@ -265,7 +315,9 @@ export default function EventDetailsScreen({ route, navigation }) {
   };
 
   const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'N/A';
     return date.toLocaleDateString(undefined, {
       weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
     });
@@ -278,12 +330,15 @@ export default function EventDetailsScreen({ route, navigation }) {
 
     const timeParts = timeStr.split(':');
     if (timeParts.length < 2) {
-      return timeStr; // Return original if not in expected format
+      return 'N/A';
     }
 
     const [hours, minutes] = timeParts;
     const date = new Date();
-    date.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+    const h = parseInt(hours, 10);
+    const m = parseInt(minutes, 10);
+    if (isNaN(h) || isNaN(m)) return 'N/A';
+    date.setHours(h, m);
     return date.toLocaleTimeString(undefined, {
       hour: '2-digit', minute: '2-digit'
     });
@@ -294,14 +349,16 @@ export default function EventDetailsScreen({ route, navigation }) {
     <>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false} sx={{ marginBottom: 20 }}>
         {/* Header */}
-        <ImageBackground
-          source={{ uri: `${API_URL}/storage/${event.image}` }}
-          style={styles.banner}
-        >
-
-
-        </ImageBackground>
-
+        {event?.image ? (
+          <ImageBackground
+            source={{ uri: `${API_URL}/storage/${event.image}` }}
+            style={styles.banner}
+          >
+          </ImageBackground>
+        ) : (
+          <View style={styles.banner} />
+        )}
+  
         {/* Modern Event Details Cards */}
         <View style={styles.modernDetailsContainer}>
           {/* Quick Info Card */}
@@ -317,8 +374,12 @@ export default function EventDetailsScreen({ route, navigation }) {
                 <Ionicons name="calendar-outline" size={16} color="#10b981" />
                 <View style={styles.compactInfoContent}>
                   <Text style={styles.compactInfoLabel}>Duaration</Text>
-                  <Text style={styles.compactInfoValue}>{formatDate(event.start_date)} - {formatDate(event.end_date)}</Text>
-                  <Text style={styles.compactInfoValue}>{formatTime(event.start_time)} - {formatTime(event.end_time)}</Text>
+                  <Text style={styles.compactInfoValue}>
+                    {event ? `${formatDate(event.start_date)} - ${formatDate(event.end_date)}` : 'N/A'}
+                  </Text>
+                  <Text style={styles.compactInfoValue}>
+                    {event ? `${formatTime(event.start_time)} - ${formatTime(event.end_time)}` : 'N/A'}
+                  </Text>
                 </View>
               </View>
 
@@ -326,9 +387,13 @@ export default function EventDetailsScreen({ route, navigation }) {
                 <Ionicons name="location-outline" size={16} color="#ef4444" />
                 <View style={styles.compactInfoContent}>
                   <Text style={styles.compactInfoLabel}>Address and Venue</Text>
-                  <Text style={styles.compactInfoValue} numberOfLines={1}>{event.venue || 'Venue not specified'}</Text>
-                  <Text style={styles.compactInfoValue} numberOfLines={1}> at the {event.address || 'Address not specified'}</Text>
-                  <TouchableOpacity style={styles.compactMapButton} onPress={() => navigation.navigate('Map', { event, mode: 'register' })}>
+                  <Text style={styles.compactInfoValue} numberOfLines={1}>{event?.venue || 'Venue not specified'}</Text>
+                  <Text style={styles.compactInfoValue} numberOfLines={1}> at the {event?.address || 'Address not specified'}</Text>
+                  <TouchableOpacity
+                    style={styles.compactMapButton}
+                    onPress={() => event && navigation.navigate('Map', { event, mode: 'register' })}
+                    disabled={!event}
+                  >
                     <Ionicons name="map-outline" size={16} color="#ef4444" />
                     <Text style={styles.compactMapButtonText}>View Map</Text>
                     <Ionicons name="chevron-forward" size={14} color="#6b7280" />
@@ -339,22 +404,23 @@ export default function EventDetailsScreen({ route, navigation }) {
                 <Ionicons name="person-outline" size={16} color="#8b5cf6" />
                 <View style={styles.compactInfoContent}>
                   <Text style={styles.compactInfoLabel}>Organizer</Text>
-                  <Text style={styles.compactInfoValue}>{event.organizer || 'Organizer not specified'}</Text>
-                  <Text style={styles.compactInfoValue}>{event.contact || 'Contact not available'}</Text>
+                  <Text style={styles.compactInfoValue}>{event?.organizer ?? 'Organizer not specified'}</Text>
+                  <Text style={styles.compactInfoValue}>{event?.contact ?? 'Contact not available'}</Text>
                 </View>
               </View>
               <View style={[styles.compactInfoItem, { borderLeftColor: '#8b5cf6' }]}>
                 <Ionicons name="pricetag-outline" size={16} color="#8b5cf6" />
                 <View style={styles.compactInfoContent}>
-                  <Text style={styles.compactInfoLabel}>Category and Church Location</Text>
-                  <Text style={styles.compactInfoValue}>{event?.event_types && Array.isArray(event.event_types) ? event.event_types.map((type) => type?.code || 'Unknown').join(", ") : "None"}
-                  </Text>
+                  <Text style={styles.compactInfoLabel}>Category </Text>
                   <Text style={styles.compactInfoValue}>
-                    {event?.locations && Array.isArray(event.locations) && event.locations.length > 0
-                      ? event.locations.map(loc => loc?.name || 'Unknown Location').filter(Boolean).join(', ') || event?.venue || 'N/A'
-                      : event?.venue || 'N/A'
-                    }
+                    {event?.event_types && Array.isArray(event.event_types)
+                      ? event.event_types
+                          .map((type) => type?.name)
+                          .filter(Boolean)
+                          .join(', ') || 'None'
+                      : 'None'}
                   </Text>
+               
                 </View>
               </View>
             </View>
@@ -412,9 +478,9 @@ export default function EventDetailsScreen({ route, navigation }) {
                 <Text style={styles.infoText}>🕒 You can mark attendance now.</Text>
                 <TouchableOpacity
                   style={[styles.registerBtn, { backgroundColor: '#3b82f6' }]}
-                  onPress={handleAttend}
+                  onPress={() => navigation.navigate('EventScan', { mode: 'attend' })}
                 >
-                  <Text style={styles.registerText}>Attend Event</Text>
+                  <Text style={styles.registerText}>Scan to Attend</Text>
                 </TouchableOpacity>
               </View>
             ) : attendanceNotYetAvailable() ? (
@@ -430,7 +496,7 @@ export default function EventDetailsScreen({ route, navigation }) {
         {hasEventEnded() && (
           <>
             {/* Modern Review Section */}
-            {event.is_registered === 1 && isAttend && (
+            {event?.is_registered === 1 && isAttend && (
               <View style={styles.modernReviewContainer}>
                 <View style={styles.modernCard}>
                   <View style={styles.cardHeader}>
@@ -603,7 +669,7 @@ export default function EventDetailsScreen({ route, navigation }) {
             )}
 
             {/* Show message if not attended */}
-            {event.is_registered === 1 && !isAttend && (
+            {event?.is_registered === 1 && !isAttend && (
               <View style={styles.modernCard}>
                 <View style={styles.noReviewMessage}>
                   <Ionicons name="information-circle" size={48} color="#6b7280" />
