@@ -66,6 +66,7 @@ export default function EventDetailsScreen({ route, navigation }) {
     setIsAttend(event?.is_attended === 1);
   }, [event]);
   const visibleComments = showAll ? comments : comments.slice(0, MAX_INITIAL_COMMENTS);
+  const [descExpanded, setDescExpanded] = useState(false);
 
   const toggleExpand = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -310,6 +311,17 @@ export default function EventDetailsScreen({ route, navigation }) {
     return diffInMinutes <= 60 && diffInMinutes > 0;
   };
 
+  // Check if the event is cancelled (aligning with web logic)
+  const isEventCancelled = () => {
+    if (!event) return false;
+    const id = event?.status_id;
+    const name = (event?.status || event?.status_name || '').toString().toLowerCase();
+    // Treat status_id === 1 as Active; anything else is Cancelled
+    const byId = typeof id === 'number' ? id !== 1 : false;
+    const byName = name.includes('cancel');
+    return byId || byName;
+  };
+
   const attendanceNotYetAvailable = () => {
     return isRegistered && !hasEventEnded() && !canMarkAttendance();
   };
@@ -322,6 +334,8 @@ export default function EventDetailsScreen({ route, navigation }) {
       weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
     });
   };
+
+  
 
   const formatTime = (timeStr) => {
     if (!timeStr || typeof timeStr !== 'string') {
@@ -426,6 +440,25 @@ export default function EventDetailsScreen({ route, navigation }) {
             </View>
           </View>
 
+          {/* Event Description Card */}
+          <View style={styles.modernCard}>
+            <View style={styles.compactCardHeader}>
+              <View style={styles.headerIconContainer}>
+                <Ionicons name="document-text-outline" size={18} color="#ffffff" />
+              </View>
+              <Text style={styles.compactCardTitle}>Event Description</Text>
+            </View>
+            <Text style={styles.compactDescription} numberOfLines={descExpanded ? undefined : 5}>
+              {event?.description || 'No description provided'}
+            </Text>
+            {(event?.description && event.description.length > 160) ? (
+              <TouchableOpacity style={styles.compactExpandButton} onPress={() => setDescExpanded(!descExpanded)}>
+                <Text style={styles.compactExpandButtonText}>{descExpanded ? 'Show less' : 'Show more'}</Text>
+                <Ionicons name={descExpanded ? 'chevron-up' : 'chevron-down'} size={16} color="#3b82f6" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
 
         </View>
         {/* Map Card
@@ -446,10 +479,33 @@ export default function EventDetailsScreen({ route, navigation }) {
           </View>
         </View> */}
 
+        {isEventCancelled() && (
+          <View style={styles.cancelBanner}>
+            <View style={styles.cancelBannerHeader}>
+              <Ionicons name="alert-circle-outline" size={22} color="#b91c1c" />
+              <Text style={styles.cancelBannerTitle}>Event Cancelled</Text>
+            </View>
+            {event?.cancel_reason ? (
+              <Text style={styles.cancelBannerText}>
+                <Text style={styles.cancelBannerLabel}>Reason: </Text>
+                {event.cancel_reason}
+              </Text>
+            ) : null}
+            
+          </View>
+        )}
+
         {hasEventEnded() ? (
           <View></View>
         ) : !isRegistered ? (
-          hasEventStarted() ? (
+          isEventCancelled() ? (
+            <View style={styles.card}>
+              <Text style={styles.infoText}>
+                ❌ Event Cancelled — registration is disabled
+               
+              </Text>
+            </View>
+          ) : hasEventStarted() ? (
             <View style={styles.card}>
               <Text style={styles.infoText}>🚫 Event already started — registration is closed.</Text>
             </View>
@@ -1699,6 +1755,37 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
     flex: 1,
+  },
+
+  // Cancelled Banner Styles
+  cancelBanner: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 10,
+    padding: 12,
+  },
+  cancelBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  cancelBannerTitle: {
+    color: '#b91c1c',
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  cancelBannerLabel: {
+    color: '#991b1b',
+    fontWeight: '700',
+  },
+  cancelBannerText: {
+    color: '#7f1d1d',
+    fontSize: 13,
+    marginTop: 2,
   },
 
 });
