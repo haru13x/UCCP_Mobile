@@ -194,6 +194,15 @@ export default function MyEventScreen({ navigation }) {
                           colors={['transparent', 'rgba(0,0,0,0.8)']}
                           style={styles.cardGradientOverlay}
                         >
+                          {(() => {
+                            const statusName = (event?.status || event?.status_name || '').toString().toLowerCase();
+                            const isCancelled = (typeof event?.status_id === 'number' ? event.status_id !== 1 : false) || statusName.includes('cancel');
+                            return (
+                              <View style={[styles.statusPill, { backgroundColor: isCancelled ? '#dc2626' : '#16a34a' }]}>
+                                <Text style={styles.statusPillText}>{isCancelled ? 'Cancelled' : 'Active'}</Text>
+                              </View>
+                            );
+                          })()}
                           <Text style={styles.cardTitle} numberOfLines={2}>{event.title}</Text>
                         </LinearGradient>
                       </ImageBackground>
@@ -203,6 +212,15 @@ export default function MyEventScreen({ navigation }) {
                         style={styles.cardImagePlaceholder}
                       >
                         <Ionicons name="calendar" size={32} color="#fff" />
+                        {(() => {
+                          const statusName = (event?.status || event?.status_name || '').toString().toLowerCase();
+                          const isCancelled = (typeof event?.status_id === 'number' ? event.status_id !== 1 : false) || statusName.includes('cancel');
+                          return (
+                            <View style={[styles.statusPill, { backgroundColor: isCancelled ? '#dc2626' : '#16a34a' }]}>
+                              <Text style={styles.statusPillText}>{isCancelled ? 'Cancelled' : 'Active'}</Text>
+                            </View>
+                          );
+                        })()}
                         <Text style={styles.cardTitle} numberOfLines={2}>{event.title}</Text>
                       </LinearGradient>
                     )}
@@ -437,6 +455,20 @@ const styles = StyleSheet.create({
     padding: 10,
     justifyContent: 'flex-end',
     minHeight: 50,
+  },
+  statusPill: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusPillText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   
   cardTitle: {
